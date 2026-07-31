@@ -155,7 +155,9 @@ function BluetoothMenuImpl({ online, onClose }: Props) {
                   tabIndex={isSettled(d) ? undefined : 0}
                   onClick={() => onConnect(d)}
                 >
-                  <span className={styles.name}>{deviceLabel(d)}</span>
+                  <span className={styles.name} dir="auto">
+                    {deviceLabel(d)}
+                  </span>
                   <span
                     className={`${styles.state} ${
                       isSettled(d) ? styles.stateOn : d.connected ? styles.stateWarn : ''

@@ -70,7 +70,9 @@ function DeviceList({
               <span className={styles.icon}>
                 <DeviceTypeIcon type={d.type} />
               </span>
-              <span className={styles.name}>{d.name}</span>
+              <span className={styles.name} dir="auto">
+                {d.name}
+              </span>
               {d.is_active ? <span className={styles.activeDot} aria-label="active" /> : null}
             </div>
           </li>

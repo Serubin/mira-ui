@@ -1,7 +1,18 @@
+// Ink from stacked marks (Devanagari matras, Thai/Lao vowels above and below, Khmer, Myanmar,
+// Tibetan) reaches past the line box that `line-height: 1.4` gives us, and `overflow: hidden` clips
+// to the padding box. `overflow-y: visible` cannot help: per spec a `visible` on one axis computes
+// to `auto` when the other axis is `hidden`. Padding grows the padding box vertically and the equal
+// negative margin keeps the element's outer size -- and so the surrounding layout -- unchanged.
+$ink-bleed: 8px;
+
 .wrap {
   position: relative;
   overflow: hidden;
   width: 100%;
+  padding-top: $ink-bleed;
+  padding-bottom: $ink-bleed;
+  margin-top: -$ink-bleed;
+  margin-bottom: -$ink-bleed;
 }
 
 .inner {
@@ -10,7 +21,8 @@
 }
 
 .animating {
-  text-align: left;
+  // `start`, not `left`: an RTL title must align to its own start edge, which is the right.
+  text-align: start;
   -webkit-mask-image: linear-gradient(
     to right,
     transparent,

@@ -7,6 +7,9 @@ coverage
 # Generated / vendored
 package-lock.json
 public/fonts
+tools/fonts/vendor
+src/styles/_font-faces.generated.scss
+src/styles/_font-stack.generated.scss
 
 # Build artifacts
 *.min.js

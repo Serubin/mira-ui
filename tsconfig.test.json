@@ -2,7 +2,10 @@
   "extends": "./tsconfig.app.json",
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.test.tsbuildinfo",
-    "types": ["vite/client", "vitest/globals", "@testing-library/jest-dom"],
+    // "node" so tests may read fixtures off disk -- the font tests verify the real font files and
+    // the generated stylesheet, which is the only way to catch a face whose declared unicode-range
+    // does not match what the font actually contains.
+    "types": ["node", "vite/client", "vitest/globals", "@testing-library/jest-dom"],
     "noUnusedLocals": false,
     "noUnusedParameters": false
   },

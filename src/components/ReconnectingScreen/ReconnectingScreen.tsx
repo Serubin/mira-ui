@@ -1,5 +1,6 @@
 import { memo, useEffect, useState } from 'react'
 import { restartDevice } from '@/api/system'
+import { isolate } from '@/bidi'
 import { BT_DEVICE_NAME } from '@/brand'
 import type { BtTroubleHint, Carriers } from '@/hooks/useBluetooth'
 import styles from './ReconnectingScreen.module.scss'
@@ -51,13 +52,15 @@ function ReconnectingScreenImpl({
     restartDevice().catch(() => setRestarting(false))
   }
 
-  const name = deviceName?.trim() || 'your phone'
+  // Remote device names may be RTL; isolate them so the surrounding English sentence keeps its
+  // own direction and punctuation stays put.
+  const name = isolate(deviceName?.trim() || 'your phone')
 
   let title: string
   let body: string
   if (trouble === 'bond-lost' && !checking) {
     title = 'Pairing needed'
-    body = `${name.charAt(0).toUpperCase() + name.slice(1)} no longer remembers ${BT_DEVICE_NAME}. Forget ${BT_DEVICE_NAME} in your phone's Bluetooth settings, then pair again.`
+    body = `${capitalize(name)} no longer remembers ${BT_DEVICE_NAME}. Forget ${BT_DEVICE_NAME} in your phone's Bluetooth settings, then pair again.`
   } else if (trouble === 'hotspot-off' && !checking) {
     title = 'Turn on hotspot'
     body = `Connected to ${name}, but internet sharing is off. Turn on Personal Hotspot (iPhone) or Bluetooth tethering (Android) and it connects on its own.`
@@ -104,12 +107,18 @@ function ReconnectingScreenImpl({
   )
 }
 
+// `name` is wrapped in a bidi isolate, so its first character is a formatting character rather than
+// a letter. Capitalise the first *letter* instead of blindly upper-casing index 0.
+function capitalize(text: string): string {
+  return text.replace(/\p{L}/u, (letter) => letter.toUpperCase())
+}
+
 // a more cause aware "why there's no internet" line
 function causeMessage(
   deviceName: string | null | undefined,
   carriers: Carriers | null | undefined,
 ) {
-  const phone = deviceName?.trim() || 'your phone'
+  const phone = isolate(deviceName?.trim() || 'your phone')
   if (deviceName) {
     return `Can't reach ${phone}. Make sure it's nearby and Bluetooth tethering is still on.`
   }
