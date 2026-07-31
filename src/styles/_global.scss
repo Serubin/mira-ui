@@ -1,74 +1,7 @@
-@font-face {
-  font-family: 'Inter';
-  src: url('/fonts/Inter-Regular.woff2') format('woff2');
-  font-weight: 400;
-}
-@font-face {
-  font-family: 'Inter';
-  src: url('/fonts/Inter-Medium.woff2') format('woff2');
-  font-weight: 500;
-}
-@font-face {
-  font-family: 'Inter';
-  src: url('/fonts/Inter-SemiBold.woff2') format('woff2');
-  font-weight: 600;
-}
-@font-face {
-  font-family: 'Inter';
-  src: url('/fonts/Inter-Bold.woff2') format('woff2');
-  font-weight: 700;
-}
-// these fonts are only loaded when these languages are present. helps keep memory usage down
-@font-face {
-  font-family: 'Noto Sans JP';
-  src: url('/fonts/NotoSansJP-VF.woff2') format('woff2');
-  unicode-range: U+3000-303F, U+3040-309F, U+30A0-30FF, U+FF00-FFEF, U+4E00-9FAF;
-}
-@font-face {
-  font-family: 'Noto Sans KR';
-  src: url('/fonts/NotoSansKR-VF.woff2') format('woff2');
-  unicode-range: U+1100-11FF, U+3130-318F, U+A960-A97F, U+AC00-D7AF;
-}
-@font-face {
-  font-family: 'Noto Sans SC';
-  src: url('/fonts/NotoSansSC-VF.woff2') format('woff2');
-  unicode-range: U+4E00-9FFF, U+3400-4DBF, U+F900-FAFF;
-}
-@font-face {
-  font-family: 'Noto Sans TC';
-  src: url('/fonts/NotoSansTC-VF.woff2') format('woff2');
-  unicode-range: U+4E00-9FFF, U+3400-4DBF, U+F900-FAFF, U+2F00-2FDF;
-}
-@font-face {
-  font-family: 'Noto Naskh Arabic';
-  src: url('/fonts/NotoNaskhAR-VF.woff2') format('woff2');
-  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF;
-}
-@font-face {
-  font-family: 'Noto Sans Thai';
-  src: url('/fonts/NotoSansTH-VF.woff2') format('woff2');
-  unicode-range: U+0E00-0E7F;
-}
-@font-face {
-  font-family: 'Noto Sans Bengali';
-  src: url('/fonts/NotoSansBN-VF.woff2') format('woff2');
-  unicode-range: U+0980-09FF;
-}
-@font-face {
-  font-family: 'Noto Sans Devanagari';
-  src: url('/fonts/NotoSansDV-VF.woff2') format('woff2');
-  unicode-range: U+0900-097F, U+A8E0-A8FF;
-}
-@font-face {
-  font-family: 'Noto Sans Greek';
-  src: url('/fonts/NotoSansGK-VF.woff2') format('woff2');
-  unicode-range: U+0370-03FF, U+1F00-1FFF;
-}
-@font-face {
-  font-family: 'Noto Sans Tamil';
-  src: url('/fonts/NotoSansTA-VF.woff2') format('woff2');
-  unicode-range: U+0B80-0BFF;
-}
+// Every @font-face rule is generated from tools/fonts/manifest.json -- see tools/fonts/README.md.
+// Each non-Latin face carries a unicode-range, so it is only fetched when that script actually
+// appears on screen; that is what keeps 60+ script fonts off a 512 MB device's heap.
+@use 'font-faces.generated';
 
 *,
 *::before,

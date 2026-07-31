@@ -17,6 +17,10 @@ coverage
 
 scripts/
 
+# Emitted by tools/fonts/sync.mjs on every build from tools/fonts/manifest.json
+src/styles/_font-faces.generated.scss
+src/styles/_font-stack.generated.scss
+
 .env
 .env.*
 !.env.example

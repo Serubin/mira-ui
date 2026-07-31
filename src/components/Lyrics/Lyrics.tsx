@@ -1,4 +1,4 @@
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { darkBg, useColorExtract, type RGB } from '@/hooks/useColorExtract'
 import { useActiveLine } from '@/hooks/useActiveLine'
 import { useLyricStarts, useLyrics } from '@/hooks/useLyrics'
@@ -55,6 +55,7 @@ const KaraokeLine = memo(function KaraokeLine({
   return (
     <div
       className={cls}
+      dir="auto"
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
       onClick={onClick}
@@ -105,11 +106,23 @@ const LyricLine = memo(function LyricLine({
         : variant === 'far'
           ? `${styles.line} ${styles.lineFar}`
           : `${styles.line} ${styles.lineUnsynced}`
+  // dir="auto" so a Hebrew or Arabic lyric line is ordered and aligned right-to-left. Without it
+  // the browser assumes LTR and renders RTL text in visually reversed word order.
   if (!onClick) {
-    return <div className={cls}>{text}</div>
+    return (
+      <div className={cls} dir="auto">
+        {text}
+      </div>
+    )
   }
   return (
-    <div className={`${cls} ${styles.lineClickable}`} role="button" tabIndex={0} onClick={onClick}>
+    <div
+      className={`${cls} ${styles.lineClickable}`}
+      dir="auto"
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+    >
       {text}
     </div>
   )
@@ -202,7 +215,7 @@ function LyricsImpl({ status, onSeek, active = true }: Props) {
     applyOffset()
   }
 
-  useLayoutEffect(() => {
+  const measureLines = useCallback(() => {
     const list = listRef.current
     if (!list) {
       lineMetrics.current = []
@@ -217,9 +230,36 @@ function LyricsImpl({ status, onSeek, active = true }: Props) {
     }
     lineMetrics.current = metrics
     listHeight.current = list.scrollHeight
+  }, [])
+
+  useLayoutEffect(() => {
+    measureLines()
     // the lyrics column is a 1fr track of a scale-dependent width, so a scale change
     // rewraps the lines and invalidates every cached top/height
-  }, [lyrics, uiScale])
+  }, [measureLines, lyrics, uiScale])
+
+  // Script fonts load asynchronously with font-display: swap, so the measurement above runs against
+  // fallback metrics for any non-Latin lyrics. Those cached tops and heights drive the scroll
+  // position, so leaving them stale makes the active line drift out of place once the real face
+  // swaps in. Re-measure and re-anchor when the fonts are ready.
+  useEffect(() => {
+    const fonts = document.fonts
+    if (typeof fonts?.ready?.then !== 'function') return
+    let cancelled = false
+    void fonts.ready.then(() => {
+      if (cancelled) return
+      measureLines()
+      if (Date.now() - userActiveAt.current >= SNAP_BACK_MS) {
+        offset.current = computeAutoTarget()
+        applyOffset()
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- computeAutoTarget/applyOffset are
+    // recreated every render; re-running on lyrics/scale changes is what matters here.
+  }, [measureLines, lyrics, uiScale])
 
   useLayoutEffect(() => {
     if (Date.now() - userActiveAt.current < SNAP_BACK_MS) return
