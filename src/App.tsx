@@ -484,14 +484,29 @@ export default function App() {
     setUpdateCardOpen(false)
   }, [latestVersion])
 
+  const overlayBusy =
+    screensaverOpen ||
+    !!forced ||
+    auth.required ||
+    reconnecting ||
+    menuOpen ||
+    powerMenuOpen ||
+    btMenuOpen ||
+    settingsOpen ||
+    deviceMenuOpen ||
+    debugOpen ||
+    sponsorOpenReal ||
+    !!reportId ||
+    !!pairing
+
   // telemetry consent card
   useEffect(() => {
     if (consentOpen || consentAnsweredRef.current) return
     if (checkinConsent !== 'unset') return
-    if (sponsorOpenReal) return
+    if (overlayBusy || updateCardOpen) return
     if (loading || realStatus == null || realStatus.setting_up === true) return
     setConsentOpen(true)
-  }, [consentOpen, checkinConsent, sponsorOpenReal, loading, realStatus])
+  }, [consentOpen, checkinConsent, overlayBusy, updateCardOpen, loading, realStatus])
   const chooseConsent = useCallback((consent: 'granted' | 'denied') => {
     consentAnsweredRef.current = true
     updateSettings({ checkinConsent: consent })
@@ -504,23 +519,11 @@ export default function App() {
     (updateMandatory || latestVersion !== skippedVersion) &&
     !updateCardOpen &&
     !consentOpen &&
-    !screensaverOpen &&
-    !forced &&
+    !overlayBusy &&
     !loading &&
-    !auth.required &&
-    !reconnecting &&
     realStatus != null &&
     realStatus.active !== true &&
-    realStatus.setting_up !== true &&
-    !menuOpen &&
-    !powerMenuOpen &&
-    !btMenuOpen &&
-    !settingsOpen &&
-    !deviceMenuOpen &&
-    !debugOpen &&
-    !sponsorOpenReal &&
-    !reportId &&
-    !pairing
+    realStatus.setting_up !== true
   useEffect(() => {
     if (!updateCardEligible) return
     const delay = Math.max(1500, updateRemindAtRef.current - Date.now())
@@ -723,7 +726,7 @@ export default function App() {
       {pairing ? <PairingDialog passkey={pairing.passkey} address={pairing.address} /> : null}
       {reportId ? <ReportDialog id={reportId} onDismiss={() => setReportId(null)} /> : null}
       {sponsorOpenReal ? <SponsorScreen onClose={closeSponsor} /> : null}
-      {consentOpen ? <CheckinConsent onChoose={chooseConsent} /> : null}
+      {consentOpen && !overlayBusy ? <CheckinConsent onChoose={chooseConsent} /> : null}
       {updateCardOpen ? (
         <UpdateCard
           latest={latestVersion}
