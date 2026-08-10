@@ -86,6 +86,7 @@ const SCREENS: ScreenDef[] = [
   { id: 'debug', label: 'Debug screen', hint: 'Diagnostics (hold presets 1+4 on device)' },
   { id: 'sponsor', label: 'Sponsor screen', hint: 'One-time support QR after setup' },
   { id: 'screensaver', label: 'Screensaver', hint: 'Clock over ambient art (double power press)' },
+  { id: 'consent', label: 'Consent card', hint: 'First-boot telemetry choice, right after setup' },
   { id: 'update-card', label: 'Update card', hint: 'New release nag on the idle screen' },
 ]
 

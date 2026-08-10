@@ -5,6 +5,7 @@ export interface ObserverStatusInactive {
   setting_up_progress?: SetupProgress
   // clock offset resolved by the daemon, null until first lookup
   utc_offset_min?: number | null
+  checkin_consent?: 'unset' | 'granted' | 'denied' | 'disabled'
   latest_version?: string
   latest_highlights?: string[]
   update_available?: boolean
@@ -76,6 +77,7 @@ export interface ObserverStatusActive {
   setting_up?: boolean
   setting_up_progress?: SetupProgress
   utc_offset_min?: number | null
+  checkin_consent?: 'unset' | 'granted' | 'denied' | 'disabled'
   latest_version?: string
   latest_highlights?: string[]
   update_available?: boolean

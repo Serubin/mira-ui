@@ -15,6 +15,7 @@ export interface Settings {
   voiceMic: boolean
   uiScalePct: number
   presets: Record<number, PresetConfig>
+  checkinConsent: '' | 'granted' | 'denied'
 }
 
 export const VOLUME_STEP_MIN = 1
@@ -40,6 +41,7 @@ const DEFAULTS: Settings = {
   voiceMic: true,
   uiScalePct: UI_SCALE_DEFAULT,
   presets: {},
+  checkinConsent: '',
 }
 
 function clamp(n: number, lo: number, hi: number): number {
@@ -73,6 +75,10 @@ function coerce(partial: Partial<Settings> | null | undefined): Settings {
     voiceMic: partial?.voiceMic ?? DEFAULTS.voiceMic,
     uiScalePct: coerceUiScale(partial?.uiScalePct),
     presets: partial?.presets ?? {},
+    checkinConsent:
+      partial?.checkinConsent === 'granted' || partial?.checkinConsent === 'denied'
+        ? partial.checkinConsent
+        : DEFAULTS.checkinConsent,
   }
 }
 

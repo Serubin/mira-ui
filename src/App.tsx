@@ -3,6 +3,7 @@ import { AlbumArt } from '@/components/AlbumArt'
 import { AuthScreen } from '@/components/AuthScreen'
 import { BluetoothMenu } from '@/components/BluetoothMenu'
 import { BootSplash } from '@/components/BootSplash'
+import { CheckinConsent } from '@/components/CheckinConsent'
 import { ConnectionChooser } from '@/components/ConnectionChooser'
 import { Controls } from '@/components/Controls'
 import { DevicePicker } from '@/components/DevicePicker'
@@ -277,6 +278,10 @@ export default function App() {
   const pairing =
     forced === 'pairing' ? { address: 'AB:CD:EF:01:23:45', passkey: '123456' } : realPairing
 
+  // telemetry consent
+  const [consentOpen, setConsentOpen] = useState(false)
+  const consentAnsweredRef = useRef(false)
+
   // update notifier
   const [updateCardOpen, setUpdateCardOpen] = useState(false)
   const updateRemindAtRef = useRef(0)
@@ -300,6 +305,7 @@ export default function App() {
     !deviceMenuOpen &&
     !debugOpen &&
     !sponsorOpenReal &&
+    !consentOpen &&
     !updateCardOpen &&
     !reportId &&
     !pairing
@@ -442,12 +448,16 @@ export default function App() {
     return () => window.clearTimeout(t)
   }, [playbackActive, stillSettingUp])
 
+  const [checkinConsent, setCheckinConsent] = useState<
+    'unset' | 'granted' | 'denied' | 'disabled' | null
+  >(null)
   const [latestVersion, setLatestVersion] = useState('')
   const [latestHighlights, setLatestHighlights] = useState<string[]>([])
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const [updateMandatory, setUpdateMandatory] = useState(false)
   useEffect(() => {
     if (realStatus == null) return
+    if (realStatus.checkin_consent != null) setCheckinConsent(realStatus.checkin_consent)
     if (typeof realStatus.update_available === 'boolean')
       setUpdateAvailable(realStatus.update_available)
     if (realStatus.latest_version) setLatestVersion(realStatus.latest_version)
@@ -474,11 +484,26 @@ export default function App() {
     setUpdateCardOpen(false)
   }, [latestVersion])
 
+  // telemetry consent card
+  useEffect(() => {
+    if (consentOpen || consentAnsweredRef.current) return
+    if (checkinConsent !== 'unset') return
+    if (sponsorOpenReal) return
+    if (loading || realStatus == null || realStatus.setting_up === true) return
+    setConsentOpen(true)
+  }, [consentOpen, checkinConsent, sponsorOpenReal, loading, realStatus])
+  const chooseConsent = useCallback((consent: 'granted' | 'denied') => {
+    consentAnsweredRef.current = true
+    updateSettings({ checkinConsent: consent })
+    setConsentOpen(false)
+  }, [])
+
   // update card
   const updateCardEligible =
     updateAvailable &&
     (updateMandatory || latestVersion !== skippedVersion) &&
     !updateCardOpen &&
+    !consentOpen &&
     !screensaverOpen &&
     !forced &&
     !loading &&
@@ -514,6 +539,10 @@ export default function App() {
   const goBack = useCallback(() => {
     if (screensaverOpen) {
       setScreensaverOpen(false)
+      return
+    }
+    if (consentOpen) {
+      // explicit choice required
       return
     }
     if (updateCardOpen) {
@@ -564,6 +593,7 @@ export default function App() {
     // nothing to go back to
   }, [
     screensaverOpen,
+    consentOpen,
     updateCardOpen,
     remindLater,
     reportId,
@@ -693,6 +723,7 @@ export default function App() {
       {pairing ? <PairingDialog passkey={pairing.passkey} address={pairing.address} /> : null}
       {reportId ? <ReportDialog id={reportId} onDismiss={() => setReportId(null)} /> : null}
       {sponsorOpenReal ? <SponsorScreen onClose={closeSponsor} /> : null}
+      {consentOpen ? <CheckinConsent onChoose={chooseConsent} /> : null}
       {updateCardOpen ? (
         <UpdateCard
           latest={latestVersion}
@@ -778,6 +809,13 @@ export default function App() {
           utcOffsetMin={utcOffsetMin}
           onClose={() => setForced(null)}
         />
+      </div>
+    )
+  }
+  if (forced === 'consent') {
+    return (
+      <div className={styles.app}>
+        <CheckinConsent onChoose={() => setForced(null)} />
       </div>
     )
   }
