@@ -32,6 +32,7 @@ import { useBluetooth } from '@/hooks/useBluetooth'
 import { useConnectDevices } from '@/hooks/useConnectDevices'
 import { useControls } from '@/hooks/useControls'
 import { useHardwareButtons } from '@/hooks/useHardwareButtons'
+import { isDJContext, useDJNarration } from '@/hooks/useIsDJContext'
 import { useKnownDevices } from '@/hooks/useKnownDevices'
 import { useNotify } from '@/notify/notifyContext'
 import { useObserver } from '@/hooks/useObserver'
@@ -54,9 +55,15 @@ const SKIPPED_VERSION_KEY = 'mira.skippedVersion'
 
 export default function App() {
   const auth = useAuth()
-  const { status: realStatus, loading, connected, setupProgress } = useObserver()
+  const {
+    status: realStatus,
+    loading,
+    connected,
+    setupProgress,
+    narration: seenNarration,
+  } = useObserver()
   const notify = useNotify()
-  const { play, pause, next, prev, seek, playContext, setVolume, setShuffle, setRepeat } =
+  const { play, pause, next, prev, seek, playContext, setVolume, setShuffle, djSignal, setRepeat } =
     useControls()
   const handleSeek = useCallback(
     (positionMs: number) => {
@@ -590,11 +597,16 @@ export default function App() {
     prev,
     seek,
     setShuffle,
+    djSignal,
     setRepeat,
     onCommandError: (message) => notify(message, { variant: 'error' }),
   })
 
   const savableStatus = status && status.active ? status : reconnecting ? heldStatus : null
+  // same status the player renders below, resolved up here so the hook stays unconditional
+  const isDJ = isDJContext(savableStatus)
+  // owns the hold that keeps the DJ on screen for the whole spoken line
+  const narration = useDJNarration(savableStatus, seenNarration)
   const savableUri =
     savableStatus && !savableStatus.track_uri.startsWith('spotify:episode:')
       ? savableStatus.track_uri
@@ -983,6 +995,8 @@ export default function App() {
   const playerStatus = status && status.active ? status : reconnecting ? heldStatus : null
   if (!playerStatus || !playerStatus.active) return null
   const isPodcast = playerStatus.track_uri.startsWith('spotify:episode:')
+  // narration items carry the next track's metadata, so we present the DJ instead
+  const narrating = narration.narrating
 
   // noti over the player on a network drops
   const bannerReason: ReconnectReason | null =
@@ -1002,11 +1016,23 @@ export default function App() {
         >
           <div className={styles.top}>
             <div className={`${styles.left} ${controls.transitioning ? styles.transitioning : ''}`}>
-              <AlbumArt src={playerStatus.track_image} size={artSize} />
-              <TrackInfo trackName={playerStatus.track_name} artist={playerStatus.track_artist} />
+              <AlbumArt
+                src={narrating ? '' : playerStatus.track_image}
+                size={artSize}
+                djFallback={narrating}
+              />
+              <TrackInfo
+                trackName={narrating ? narration.title : playerStatus.track_name}
+                artist={narrating ? narration.artist : playerStatus.track_artist}
+              />
             </div>
             <div className={styles.right}>
-              <Lyrics status={playerStatus} onSeek={handleSeek} active={showLyrics} />
+              <Lyrics
+                status={playerStatus}
+                onSeek={handleSeek}
+                active={showLyrics}
+                narrating={narrating}
+              />
             </div>
           </div>
         </div>
@@ -1016,13 +1042,18 @@ export default function App() {
           <div
             className={`${styles.topNoLyrics} ${controls.transitioning ? styles.transitioning : ''}`}
           >
-            <NoLyricsView status={playerStatus} active={!showLyrics} artSize={heroArtSize} />
+            <NoLyricsView
+              status={playerStatus}
+              active={!showLyrics}
+              artSize={heroArtSize}
+              narration={narration}
+            />
           </div>
         </div>
       </div>
 
       <div className={styles.bottom}>
-        <ProgressBar status={playerStatus} onSeek={handleSeek} />
+        <ProgressBar status={playerStatus} onSeek={handleSeek} narrating={narrating} />
         <Controls
           isPaused={controls.isPaused}
           shuffle={controls.shuffle}
@@ -1030,6 +1061,7 @@ export default function App() {
           disallowPrev={playerStatus.disallow_prev}
           disallowNext={playerStatus.disallow_next}
           isPodcast={isPodcast}
+          isDJ={isDJ}
           showSave={!isPodcast}
           saved={liked.saved}
           onToggleSaved={liked.toggle}
@@ -1037,6 +1069,7 @@ export default function App() {
           onNext={controls.onNext}
           onPlayPause={controls.onPlayPause}
           onToggleShuffle={controls.onToggleShuffle}
+          onDJSignal={controls.onDJSignal}
           onCycleRepeat={controls.onCycleRepeat}
           onRewind15={() => seekRelative(-15000)}
           onForward15={() => seekRelative(15000)}

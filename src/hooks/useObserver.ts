@@ -1,6 +1,7 @@
 import { useEffect, useReducer } from 'react'
 import { fetchObserverStatus, remoteStateToStatus } from '@/api/client'
 import { subscribeConnection, subscribeEvents } from '@/api/eventBus'
+import { hasDJMetadata, seenNarrationFrom, type SeenNarration } from '@/hooks/useIsDJContext'
 import type { ApiEvent, ObserverStatus, RemoteStateWire, SetupProgress } from '@/api/types'
 
 interface ObserverState {
@@ -9,6 +10,9 @@ interface ObserverState {
   error: string | null
   connected: boolean
   setupProgress: SetupProgress | null
+  // last DJ narration seen on the wire. Captured here because the reducer processes every
+  // action, whereas React may batch the narration away before it is ever rendered.
+  narration: SeenNarration | null
 }
 
 type Action =
@@ -24,6 +28,7 @@ const initial: ObserverState = {
   error: null,
   connected: false,
   setupProgress: null,
+  narration: null,
 }
 
 function mergeProgress(
@@ -46,12 +51,20 @@ function reducer(state: ObserverState, action: Action): ObserverState {
         incoming.setting_up === undefined && prev !== undefined
           ? { ...incoming, setting_up: prev }
           : incoming
+      // Carried forward on ordinary statuses, so the song that supersedes a narration within
+      // ~350-900ms cannot erase it before the hold has been armed.
+      const narration =
+        status.active && hasDJMetadata(status.raw_metadata)
+          ? seenNarrationFrom(status)
+          : state.narration
+
       return {
         ...state,
         status,
         loading: false,
         error: null,
         setupProgress: mergeProgress(state.setupProgress, incoming.setting_up_progress),
+        narration,
       }
     }
     case 'error':

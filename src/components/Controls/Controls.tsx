@@ -1,5 +1,6 @@
 import { memo } from 'react'
 import {
+  DJIcon,
   MoreIcon,
   NextIcon,
   PauseIcon,
@@ -24,6 +25,8 @@ interface Props {
   disallowNext?: boolean
   // podcast mode: shuffle/repeat become rewind/forward 15s
   isPodcast?: boolean
+  // dj mode: shuffle becomes the switch-set button, since a DJ set is sequenced by Spotify
+  isDJ?: boolean
   showSave?: boolean
   saved?: boolean
   onToggleSaved?: () => void
@@ -32,6 +35,7 @@ interface Props {
   onNext?: () => void
   onMore?: () => void
   onToggleShuffle?: () => void
+  onDJSignal?: () => void
   onCycleRepeat?: () => void
   onRewind15?: () => void
   onForward15?: () => void
@@ -44,6 +48,7 @@ function ControlsImpl({
   disallowPrev = false,
   disallowNext = false,
   isPodcast = false,
+  isDJ = false,
   showSave = false,
   saved = false,
   onToggleSaved,
@@ -52,6 +57,7 @@ function ControlsImpl({
   onNext,
   onMore,
   onToggleShuffle,
+  onDJSignal,
   onCycleRepeat,
   onRewind15,
   onForward15,
@@ -73,6 +79,16 @@ function ControlsImpl({
             onClick={onRewind15}
           >
             <SeekBack15Icon size={32} />
+          </button>
+        ) : isDJ ? (
+          // momentary action, not a toggle, so no aria-pressed and no active accent
+          <button
+            type="button"
+            className={`${styles.btn} ${styles.btnXs}`}
+            aria-label="Switch DJ set"
+            onClick={onDJSignal}
+          >
+            <DJIcon size={32} />
           </button>
         ) : (
           <button

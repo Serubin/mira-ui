@@ -73,6 +73,8 @@ interface Props {
   status: ObserverStatusActive
   onSeek?: (positionMs: number) => void
   active?: boolean
+  // true while the DJ is speaking; status already points at the next song by then
+  narrating?: boolean
 }
 
 type LineVariant = 'active' | 'adjacent' | 'far' | 'unsynced'
@@ -126,7 +128,7 @@ const LyricLine = memo(function LyricLine({
   )
 })
 
-function LyricsImpl({ status, onSeek, active = true }: Props) {
+function LyricsImpl({ status, onSeek, active = true, narrating = false }: Props) {
   const isPodcast = status.track_uri.startsWith('spotify:episode:')
   const { lyricOffsetMs, karaokeLyrics } = useSettings()
   // touch and wheel deltas arrive in viewport space; the scroll offset below is layout
@@ -140,11 +142,11 @@ function LyricsImpl({ status, onSeek, active = true }: Props) {
     album: status.track_album,
     durationMs: status.duration,
     episode: isPodcast,
-    enabled: active,
+    enabled: active && !narrating,
     karaoke: karaokeLyrics,
   })
 
-  const color: RGB = useColorExtract(status.track_image)
+  const color: RGB = useColorExtract(narrating ? '' : status.track_image)
   const starts = useLyricStarts(lyrics)
   const synced = lyrics?.syncType === 'LINE_SYNCED'
   const activeIdx = useActiveLine(status, synced ? starts : [], active, lyricOffsetMs)
@@ -304,6 +306,16 @@ function LyricsImpl({ status, onSeek, active = true }: Props) {
     userActiveAt.current = Date.now()
     window.clearTimeout(snapBackTimer.current)
     snapBackTimer.current = window.setTimeout(snapBack, SNAP_BACK_MS)
+  }
+
+  // The DJ has no lyrics. This has to short-circuit rather than rely on the hook, because
+  // useLyrics returns early when disabled and so keeps the previous track's lyrics in state.
+  if (narrating) {
+    return (
+      <div className={`${styles.lyrics} ${styles.state}`} style={bgStyle} ref={containerRef}>
+        <div className={styles.stateText}>No lyrics available</div>
+      </div>
+    )
   }
 
   if (loading) {

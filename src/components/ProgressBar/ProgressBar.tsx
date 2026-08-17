@@ -14,6 +14,9 @@ import {
 interface Props {
   status: ObserverStatusActive
   onSeek?: (positionMs: number) => void
+  // while the DJ speaks, status already points at the next song, so the position shown here
+  // is not the audio you are hearing. Grey it out and refuse seeks for the duration.
+  narrating?: boolean
 }
 
 const HANDLE_RADIUS = 7
@@ -28,8 +31,9 @@ function reducer(state: ScrubState, event: ScrubEvent): ScrubState {
   return transition(state, event).next
 }
 
-function ProgressBarImpl({ status, onSeek }: Props) {
-  const seekDisabled = !!status.disallow_seek
+function ProgressBarImpl({ status, onSeek, narrating = false }: Props) {
+  // reuses the existing disallow_seek treatment: grey fill, no handle, seeks ignored
+  const seekDisabled = !!status.disallow_seek || narrating
   // the bar width below is measured once per effect run, so it has to re-measure when
   // the display size changes; the status deps alone would leave it stale while paused
   const uiScale = useUiScale()
@@ -57,8 +61,9 @@ function ProgressBarImpl({ status, onSeek }: Props) {
   useEffect(() => {
     const right = rightLabelRef.current
     if (!right) return
-    right.textContent = formatTime(status.duration)
-  }, [status.duration])
+    // no times at all while the DJ talks; the duration belongs to the next song
+    right.textContent = narrating ? '' : formatTime(status.duration)
+  }, [status.duration, narrating])
 
   useEffect(() => {
     send({
@@ -85,6 +90,13 @@ function ProgressBarImpl({ status, onSeek }: Props) {
 
     // layout-space width
     const barWidth = bar.clientWidth
+
+    // inert while the DJ talks: empty bar, no times, no rAF tracking
+    if (narrating) {
+      fill.style.transform = 'scaleX(0)'
+      left.textContent = ''
+      return
+    }
 
     const playing = status.is_playing && !status.is_paused
 
@@ -135,6 +147,7 @@ function ProgressBarImpl({ status, onSeek }: Props) {
     status.is_paused,
     scrubState,
     uiScale,
+    narrating,
   ])
 
   const computeRatio = useCallback((clientX: number): number => {
@@ -200,7 +213,7 @@ function ProgressBarImpl({ status, onSeek }: Props) {
         0:00
       </span>
       <div
-        className={`${styles.hit} ${seekDisabled ? styles.hitDisabled : ''}`}
+        className={`${styles.hit} ${seekDisabled ? styles.hitDisabled : ''} ${narrating ? styles.inert : ''}`}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}

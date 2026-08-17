@@ -86,4 +86,41 @@ describe('ProgressBar DOM event wiring', () => {
     expect(slider).toHaveAttribute('aria-disabled', 'true')
     expect(onSeek).not.toHaveBeenCalled()
   })
+
+  it('greys out and refuses seeks while the DJ is talking', () => {
+    // the position belongs to the next song, not the speech you are hearing
+    const onSeek = vi.fn()
+    render(<ProgressBar status={activeStatus} onSeek={onSeek} narrating={true} />)
+
+    const slider = screen.getByRole('slider')
+    mockBarRect(slider, 800)
+    stubPointerCapture(slider)
+
+    fireEvent.pointerDown(slider, { clientX: 400, pointerId: 1 })
+    fireEvent.pointerUp(slider, { clientX: 400, pointerId: 1 })
+
+    expect(slider).toHaveAttribute('aria-disabled', 'true')
+    expect(onSeek).not.toHaveBeenCalled()
+  })
+
+  it('shows no times and no fill while the DJ is talking', () => {
+    const { container, rerender } = render(<ProgressBar status={activeStatus} narrating={true} />)
+
+    const times = container.querySelectorAll('span')
+    expect(times.length).toBe(2)
+    times.forEach((t) => expect(t.textContent).toBe(''))
+
+    const fill = screen.getByRole('slider').querySelector(':scope > div > div > div')
+    expect((fill as HTMLElement).style.transform).toBe('scaleX(0)')
+
+    // and the real duration comes back once the DJ stops
+    rerender(<ProgressBar status={activeStatus} narrating={false} />)
+    expect(container.querySelectorAll('span')[1].textContent).not.toBe('')
+  })
+
+  it('stays seekable when the DJ is not talking', () => {
+    const onSeek = vi.fn()
+    render(<ProgressBar status={activeStatus} onSeek={onSeek} narrating={false} />)
+    expect(screen.getByRole('slider')).toHaveAttribute('aria-disabled', 'false')
+  })
 })

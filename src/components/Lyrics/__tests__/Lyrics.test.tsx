@@ -180,4 +180,25 @@ describe('lyrics rendered DOM', () => {
 
     expect(await screen.findByText(/no lyrics available/i)).toBeInTheDocument()
   })
+
+  it('shows "No lyrics available" while the DJ is talking', async () => {
+    // must not show the previous track's lyrics: useLyrics returns early when disabled and
+    // therefore keeps them in state, so the component has to short-circuit
+    server.use(
+      http.get('*/lyrics/abc', () =>
+        HttpResponse.json({
+          syncType: 'LINE_SYNCED',
+          lines: [{ startTimeMs: '0', words: 'Stale line from the last song' }],
+        }),
+      ),
+    )
+
+    const { rerender } = render(<Lyrics status={TRACK_STATUS} />)
+    expect(await screen.findByText('Stale line from the last song')).toBeInTheDocument()
+
+    rerender(<Lyrics status={TRACK_STATUS} narrating={true} />)
+
+    expect(screen.getByText(/no lyrics available/i)).toBeInTheDocument()
+    expect(screen.queryByText('Stale line from the last song')).toBeNull()
+  })
 })
