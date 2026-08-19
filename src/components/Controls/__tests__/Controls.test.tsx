@@ -98,6 +98,28 @@ describe('Controls', () => {
     expect(props.onDJSignal).not.toHaveBeenCalled()
   })
 
+  it('disables repeat for the whole DJ set', () => {
+    const props = { ...defaultProps(), onDJSignal: vi.fn() }
+    render(<Controls {...props} isDJ={true} repeat="off" />)
+
+    const repeat = screen.getByRole('button', { name: 'Repeat off' })
+    expect(repeat).toBeDisabled()
+    expect(repeat).toHaveAttribute('aria-disabled', 'true')
+
+    fireEvent.click(repeat)
+    expect(props.onCycleRepeat).not.toHaveBeenCalled()
+  })
+
+  it('keeps repeat usable outside a DJ set', () => {
+    const props = defaultProps()
+    render(<Controls {...props} isDJ={false} />)
+
+    const repeat = screen.getByRole('button', { name: 'Repeat off' })
+    expect(repeat).not.toBeDisabled()
+    fireEvent.click(repeat)
+    expect(props.onCycleRepeat).toHaveBeenCalledTimes(1)
+  })
+
   it('lets podcast mode win over DJ mode in the shuffle slot', () => {
     // a DJ set is never an episode, but the branch order must still be deterministic
     const props = { ...defaultProps(), onDJSignal: vi.fn(), onRewind15: vi.fn() }

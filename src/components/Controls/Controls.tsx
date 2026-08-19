@@ -63,6 +63,9 @@ function ControlsImpl({
   onForward15,
 }: Props) {
   const repeatActive = repeat !== 'off'
+  // Spotify sequences a DJ set, so repeating it means nothing. Disabled for the whole set,
+  // matching the shuffle slot, which the DJ button takes over for the same reason.
+  const repeatDisabled = isDJ
 
   return (
     <div className={styles.row}>
@@ -145,10 +148,12 @@ function ControlsImpl({
         ) : (
           <button
             type="button"
-            className={`${styles.btn} ${styles.btnXs} ${repeatActive ? styles.toggleOn : ''}`}
+            className={`${styles.btn} ${styles.btnXs} ${repeatActive && !repeatDisabled ? styles.toggleOn : ''} ${repeatDisabled ? styles.btnDisabled : ''}`}
             aria-label={`Repeat ${repeat}`}
             aria-pressed={repeatActive}
-            onClick={onCycleRepeat}
+            aria-disabled={repeatDisabled}
+            disabled={repeatDisabled}
+            onClick={repeatDisabled ? undefined : onCycleRepeat}
           >
             {repeat === 'track' ? <RepeatOneIcon size={32} /> : <RepeatIcon size={32} />}
           </button>
