@@ -127,6 +127,23 @@ const LyricLine = memo(function LyricLine({
   )
 })
 
+// the shell shared by the loading, empty and instrumental states
+function LyricsState({
+  children,
+  style,
+  ref,
+}: {
+  children: React.ReactNode
+  style?: React.CSSProperties
+  ref?: React.Ref<HTMLDivElement>
+}) {
+  return (
+    <div className={`${styles.lyrics} ${styles.state}`} style={style} ref={ref}>
+      <div className={styles.stateText}>{children}</div>
+    </div>
+  )
+}
+
 function LyricsImpl({ status, onSeek, active = true }: Props) {
   const isPodcast = status.track_uri.startsWith('spotify:episode:')
   // status points at the next song while the DJ speaks
@@ -312,37 +329,33 @@ function LyricsImpl({ status, onSeek, active = true }: Props) {
   // the DJ has no lyrics, and useLyrics keeps the previous track's when disabled
   if (narrating) {
     return (
-      <div className={`${styles.lyrics} ${styles.state}`} style={bgStyle} ref={containerRef}>
-        <div className={styles.stateText}>No lyrics available</div>
-      </div>
+      <LyricsState style={bgStyle} ref={containerRef}>
+        No lyrics available
+      </LyricsState>
     )
   }
 
   if (loading) {
     return (
-      <div className={`${styles.lyrics} ${styles.state}`} style={bgStyle} ref={containerRef}>
-        <div className={styles.stateText}>
-          {isPodcast ? 'Loading transcript...' : 'Loading lyrics...'}
-        </div>
-      </div>
+      <LyricsState style={bgStyle} ref={containerRef}>
+        {isPodcast ? 'Loading transcript...' : 'Loading lyrics...'}
+      </LyricsState>
     )
   }
 
   if (error || !lyrics || lyrics.lines.length === 0) {
     return (
-      <div className={`${styles.lyrics} ${styles.state}`} style={bgStyle} ref={containerRef}>
-        <div className={styles.stateText}>
-          {isPodcast ? 'No transcript available' : 'No lyrics available'}
-        </div>
-      </div>
+      <LyricsState style={bgStyle} ref={containerRef}>
+        {isPodcast ? 'No transcript available' : 'No lyrics available'}
+      </LyricsState>
     )
   }
 
   if (isInstrumental(lyrics.lines)) {
     return (
-      <div className={`${styles.lyrics} ${styles.state}`} style={bgStyle} ref={containerRef}>
-        <div className={styles.stateText}>♪ Instrumental</div>
-      </div>
+      <LyricsState style={bgStyle} ref={containerRef}>
+        ♪ Instrumental
+      </LyricsState>
     )
   }
 
