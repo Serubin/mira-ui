@@ -68,9 +68,6 @@ export function SmartShuffleIcon({ size = 18 }: { size?: number }) {
   return <PathIcon16 size={size} paths={[SMART_STARS, SHUFFLE_ARC]} />
 }
 
-// Kept as one path string, not split into several: as separate path elements the subpaths
-// overlap at the joins, and with a translucent colour (the transport button inherits
-// $text-tertiary at 42% alpha) that overlap composites twice and shows as a bright blob.
 const DJ =
   'M7.813 14.497A6.5 6.5 0 0 1 1.5 8.016c.008-3.553 2.71-5.744 5.043-6.078.85-.121 1.288.037 1.564.246.312.238.553.639.822 1.276q.115.277.239.602c.451 1.167 1.05 2.717 2.505 3.81 1.01.76 1.46 1.529 1.592 2.209.13.679-.037 1.375-.468 2.03-.88 1.34-2.793 2.388-4.844 2.388zm-.037 1.5A8 8 0 1 0 0 8.032c0 4.34 3.464 7.87 7.776 7.965m6.666-7.124c-.358-.788-.979-1.532-1.868-2.2-1.082-.813-1.51-1.9-1.967-3.06a31 31 0 0 0-.296-.736 6.3 6.3 0 0 0-.605-1.151 6.53 6.53 0 0 1 4.39 4.01 6.5 6.5 0 0 1 .346 3.137'
 

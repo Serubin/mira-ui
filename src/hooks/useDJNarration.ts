@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
 
 import type { ObserverStatusActive } from '@/api/types'
 
@@ -12,9 +12,19 @@ const DEFAULT_NARRATION_MS = 5_000
 // a bad duration must not be able to wedge the DJ presentation on screen
 const MAX_NARRATION_MS = 15_000
 
-// raw_metadata is the verbatim ProvidedTrack metadata map from the daemon. These keys are
-// present on the narration item only, never on the songs between narrations.
-export function hasDJMetadata(metadata: Record<string, string> | null | undefined): boolean {
+/**
+ * Whether this status *is* the narration item. raw_metadata is the verbatim ProvidedTrack
+ * metadata map from the daemon, and these keys appear on the narration item only, never on the
+ * songs between narrations.
+ *
+ * This is a snapshot check, so it answers "is the narration item current", NOT "is the DJ
+ * talking". Spotify keeps the item current for only 350-900ms while the speech runs ~5s, and
+ * when the jump comes from the Spotify app the item is batched away before it ever renders.
+ * Use `useNarration()` for the second question; this belongs in the observer reducer, which is
+ * the one place that sees every status.
+ */
+export function isNarrationItem(status: ObserverStatusActive | null): boolean {
+  const metadata = status?.raw_metadata
   if (!metadata) return false
   return metadata.is_narration === 'true' || metadata.album_artist_name === 'DJ X'
 }
@@ -114,4 +124,46 @@ export function useDJNarration(
     return { narrating: true, title: current.title, artist: current.artist }
   }
   return NOT_NARRATING
+}
+
+/**
+ * The narration state, provided once by App from `useDJNarration`.
+ *
+ * Defaults to NOT_NARRATING so a component rendered without a provider simply reads "not
+ * narrating" rather than throwing, which keeps isolated component tests wrapper-free.
+ */
+export const NarrationContext = createContext<DJNarration>(NOT_NARRATING)
+
+/** Read the narration state. Prefer this over passing it down as a prop. */
+export function useNarration(): DJNarration {
+  return useContext(NarrationContext)
+}
+
+export interface TrackPresentation {
+  title: string
+  artist: string
+  /** empty while narrating: the status artwork belongs to the song that plays next */
+  art: string
+  /** tells AlbumArt to draw the DJ mark instead of an empty placeholder */
+  djFallback: boolean
+}
+
+/**
+ * What to actually show for the current item. While the DJ talks, status describes the song
+ * queued behind the speech, so none of it may be displayed. Single source of truth for that
+ * substitution, since more than one surface needs it.
+ */
+export function presentTrack(
+  status: ObserverStatusActive,
+  narration: DJNarration,
+): TrackPresentation {
+  if (narration.narrating) {
+    return { title: narration.title, artist: narration.artist, art: '', djFallback: true }
+  }
+  return {
+    title: status.track_name,
+    artist: status.track_artist,
+    art: status.track_image,
+    djFallback: false,
+  }
 }

@@ -1,7 +1,7 @@
 import { useEffect, useReducer } from 'react'
 import { fetchObserverStatus, remoteStateToStatus } from '@/api/client'
 import { subscribeConnection, subscribeEvents } from '@/api/eventBus'
-import { hasDJMetadata, seenNarrationFrom, type SeenNarration } from '@/hooks/useIsDJContext'
+import { isNarrationItem, seenNarrationFrom, type SeenNarration } from '@/hooks/useDJNarration'
 import type { ApiEvent, ObserverStatus, RemoteStateWire, SetupProgress } from '@/api/types'
 
 interface ObserverState {
@@ -54,7 +54,7 @@ function reducer(state: ObserverState, action: Action): ObserverState {
       // Carried forward on ordinary statuses, so the song that supersedes a narration within
       // ~350-900ms cannot erase it before the hold has been armed.
       const narration =
-        status.active && hasDJMetadata(status.raw_metadata)
+        status.active && isNarrationItem(status)
           ? seenNarrationFrom(status)
           : state.narration
 

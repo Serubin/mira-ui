@@ -2,11 +2,15 @@ import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { NoLyricsView } from '../NoLyricsView'
 import { activeStatus } from '../../../__tests__/fixtures/observer'
-import type { DJNarration } from '@/hooks/useIsDJContext'
+import { NarrationContext, type DJNarration } from '@/hooks/useDJNarration'
 import type { ObserverStatusActive } from '@/api/types'
 
-// what App passes down while the DJ is speaking
+// what App provides while the DJ is speaking
 const talking: DJNarration = { narrating: true, title: 'Up next', artist: 'DJ X' }
+
+function whileTalking(node: React.ReactNode) {
+  return <NarrationContext.Provider value={talking}>{node}</NarrationContext.Provider>
+}
 
 describe('NoLyricsView', () => {
   it('shows the real track when the DJ is not talking', () => {
@@ -24,7 +28,7 @@ describe('NoLyricsView', () => {
       track_artist: 'Cautious Clay',
       track_image: 'https://x/next.jpg',
     }
-    render(<NoLyricsView status={nextSong} narration={talking} />)
+    render(whileTalking(<NoLyricsView status={nextSong} />))
 
     expect(screen.getByText('Up next')).toBeInTheDocument()
     expect(screen.getByText('DJ X')).toBeInTheDocument()
@@ -38,7 +42,7 @@ describe('NoLyricsView', () => {
       ...activeStatus,
       track_image: 'https://x/next.jpg',
     }
-    const { container } = render(<NoLyricsView status={nextSong} narration={talking} />)
+    const { container } = render(whileTalking(<NoLyricsView status={nextSong} />))
     expect(container.querySelector('img[src="https://x/next.jpg"]')).toBeNull()
   })
 })

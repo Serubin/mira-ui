@@ -2,6 +2,7 @@ import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'rea
 import { darkBg, useColorExtract, type RGB } from '@/hooks/useColorExtract'
 import { useActiveLine } from '@/hooks/useActiveLine'
 import { useLyricStarts, useLyrics } from '@/hooks/useLyrics'
+import { useNarration } from '@/hooks/useDJNarration'
 import { useSettings } from '@/settings'
 import { getUiScaleY, useUiScale } from '@/uiScale'
 import type { LyricsWord, ObserverStatusActive } from '@/api/types'
@@ -73,8 +74,6 @@ interface Props {
   status: ObserverStatusActive
   onSeek?: (positionMs: number) => void
   active?: boolean
-  // true while the DJ is speaking; status already points at the next song by then
-  narrating?: boolean
 }
 
 type LineVariant = 'active' | 'adjacent' | 'far' | 'unsynced'
@@ -128,8 +127,11 @@ const LyricLine = memo(function LyricLine({
   )
 })
 
-function LyricsImpl({ status, onSeek, active = true, narrating = false }: Props) {
+function LyricsImpl({ status, onSeek, active = true }: Props) {
   const isPodcast = status.track_uri.startsWith('spotify:episode:')
+  // status already points at the next song while the DJ speaks, so its lyrics are the wrong
+  // ones to look up or show
+  const { narrating } = useNarration()
   const { lyricOffsetMs, karaokeLyrics } = useSettings()
   // touch and wheel deltas arrive in viewport space; the scroll offset below is layout
   // space. they only agree at 100%. the hook value is here to re-run the measuring

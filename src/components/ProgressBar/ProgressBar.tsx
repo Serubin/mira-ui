@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useReducer, useRef } from 'react'
 import { formatTime } from '@/utils/time'
+import { useNarration } from '@/hooks/useDJNarration'
 import { getUiScale, useUiScale } from '@/uiScale'
 import type { ObserverStatusActive } from '@/api/types'
 import styles from './ProgressBar.module.scss'
@@ -14,9 +15,6 @@ import {
 interface Props {
   status: ObserverStatusActive
   onSeek?: (positionMs: number) => void
-  // while the DJ speaks, status already points at the next song, so the position shown here
-  // is not the audio you are hearing. Grey it out and refuse seeks for the duration.
-  narrating?: boolean
 }
 
 const HANDLE_RADIUS = 7
@@ -31,8 +29,10 @@ function reducer(state: ScrubState, event: ScrubEvent): ScrubState {
   return transition(state, event).next
 }
 
-function ProgressBarImpl({ status, onSeek, narrating = false }: Props) {
-  // reuses the existing disallow_seek treatment: grey fill, no handle, seeks ignored
+function ProgressBarImpl({ status, onSeek }: Props) {
+  // while the DJ speaks, status points at the next song, so the position here is not the audio
+  // you are hearing. Reuses the existing disallow_seek treatment: grey fill, no handle, no seek.
+  const { narrating } = useNarration()
   const seekDisabled = !!status.disallow_seek || narrating
   // the bar width below is measured once per effect run, so it has to re-measure when
   // the display size changes; the status deps alone would leave it stale while paused

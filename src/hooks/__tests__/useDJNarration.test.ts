@@ -2,10 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import {
   isDJContext,
+  isNarrationItem,
+  presentTrack,
   seenNarrationFrom,
   useDJNarration,
   type SeenNarration,
-} from '../useIsDJContext'
+} from '../useDJNarration'
 import { activeStatus } from '../../__tests__/fixtures/observer'
 import type { ObserverStatusActive } from '@/api/types'
 
@@ -175,5 +177,37 @@ describe('useDJNarration', () => {
     const normal = { ...activeStatus, context_uri: 'spotify:playlist:regular', raw_metadata: null }
     rerender([normal, seen])
     expect(result.current.narrating).toBe(false)
+  })
+})
+
+describe('presentTrack', () => {
+  const NOT_TALKING = { narrating: false, title: '', artist: '' }
+  const TALKING = { narrating: true, title: 'Up next', artist: 'DJ X' }
+
+  it('shows the real track when the DJ is not talking', () => {
+    expect(presentTrack(djSong(), NOT_TALKING)).toEqual({
+      title: 'Joshua Tree',
+      artist: 'Cautious Clay',
+      art: 'https://x/song.jpg',
+      djFallback: false,
+    })
+  })
+
+  it('substitutes the DJ and drops the artwork while talking', () => {
+    // status describes the song queued behind the speech, so none of it may leak through
+    expect(presentTrack(djSong(), TALKING)).toEqual({
+      title: 'Up next',
+      artist: 'DJ X',
+      art: '',
+      djFallback: true,
+    })
+  })
+})
+
+describe('isNarrationItem', () => {
+  it('is true for the narration item and false for the songs around it', () => {
+    expect(isNarrationItem(djNarration())).toBe(true)
+    expect(isNarrationItem(djSong())).toBe(false)
+    expect(isNarrationItem(null)).toBe(false)
   })
 })

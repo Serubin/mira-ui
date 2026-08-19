@@ -32,7 +32,7 @@ import { useBluetooth } from '@/hooks/useBluetooth'
 import { useConnectDevices } from '@/hooks/useConnectDevices'
 import { useControls } from '@/hooks/useControls'
 import { useHardwareButtons } from '@/hooks/useHardwareButtons'
-import { isDJContext, useDJNarration } from '@/hooks/useIsDJContext'
+import { isDJContext, NarrationContext, presentTrack, useDJNarration } from '@/hooks/useDJNarration'
 import { useKnownDevices } from '@/hooks/useKnownDevices'
 import { useNotify } from '@/notify/notifyContext'
 import { useObserver } from '@/hooks/useObserver'
@@ -360,7 +360,13 @@ export default function App() {
 
   // which offline screen wins
   let offlineScreen:
-    'checking' | 'tethering' | 'reconnecting' | 'chooser' | 'pc' | 'bluetooth' | null = null
+    | 'checking'
+    | 'tethering'
+    | 'reconnecting'
+    | 'chooser'
+    | 'pc'
+    | 'bluetooth'
+    | null = null
   if (offlineActive) {
     if (offlineChecking) {
       offlineScreen = 'checking'
@@ -995,113 +1001,101 @@ export default function App() {
   const playerStatus = status && status.active ? status : reconnecting ? heldStatus : null
   if (!playerStatus || !playerStatus.active) return null
   const isPodcast = playerStatus.track_uri.startsWith('spotify:episode:')
-  // narration items carry the next track's metadata, so we present the DJ instead
-  const narrating = narration.narrating
+  // narration items carry the next track's metadata, so presentTrack substitutes the DJ
+  const shown = presentTrack(playerStatus, narration)
 
   // noti over the player on a network drops
   const bannerReason: ReconnectReason | null =
     forced === 'reconnect-banner' ? 'offline' : reconnecting ? dropReason : null
 
   return (
-    <div
-      className={`${styles.app} ${styles.appPlaying}`}
-      // the art is the only fixed-height block in the left column and never shrinks, so
-      // it has to give way when a larger display size shortens the logical viewport
-      style={{ '--art-size': `${artSize}px` } as React.CSSProperties}
-    >
-      {bannerReason ? <ReconnectBanner reason={bannerReason} carriers={carriers} /> : null}
-      <div className={styles.stage} ref={stageRef}>
-        <div
-          className={`${styles.viewLayer} ${showLyrics ? styles.viewActive : styles.viewInactive}`}
-        >
-          <div className={styles.top}>
-            <div className={`${styles.left} ${controls.transitioning ? styles.transitioning : ''}`}>
-              <AlbumArt
-                src={narrating ? '' : playerStatus.track_image}
-                size={artSize}
-                djFallback={narrating}
-              />
-              <TrackInfo
-                trackName={narrating ? narration.title : playerStatus.track_name}
-                artist={narrating ? narration.artist : playerStatus.track_artist}
-              />
-            </div>
-            <div className={styles.right}>
-              <Lyrics
-                status={playerStatus}
-                onSeek={handleSeek}
-                active={showLyrics}
-                narrating={narrating}
-              />
-            </div>
-          </div>
-        </div>
-        <div
-          className={`${styles.viewLayer} ${!showLyrics ? styles.viewActive : styles.viewInactive}`}
-        >
+    // provided once here: the hold is stateful, so consumers cannot derive it from status
+    <NarrationContext.Provider value={narration}>
+      <div
+        className={`${styles.app} ${styles.appPlaying}`}
+        // the art is the only fixed-height block in the left column and never shrinks, so
+        // it has to give way when a larger display size shortens the logical viewport
+        style={{ '--art-size': `${artSize}px` } as React.CSSProperties}
+      >
+        {bannerReason ? <ReconnectBanner reason={bannerReason} carriers={carriers} /> : null}
+        <div className={styles.stage} ref={stageRef}>
           <div
-            className={`${styles.topNoLyrics} ${controls.transitioning ? styles.transitioning : ''}`}
+            className={`${styles.viewLayer} ${showLyrics ? styles.viewActive : styles.viewInactive}`}
           >
-            <NoLyricsView
-              status={playerStatus}
-              active={!showLyrics}
-              artSize={heroArtSize}
-              narration={narration}
-            />
+            <div className={styles.top}>
+              <div
+                className={`${styles.left} ${controls.transitioning ? styles.transitioning : ''}`}
+              >
+                <AlbumArt src={shown.art} size={artSize} djFallback={shown.djFallback} />
+                <TrackInfo trackName={shown.title} artist={shown.artist} />
+              </div>
+              <div className={styles.right}>
+                <Lyrics status={playerStatus} onSeek={handleSeek} active={showLyrics} />
+              </div>
+            </div>
+          </div>
+          <div
+            className={`${styles.viewLayer} ${!showLyrics ? styles.viewActive : styles.viewInactive}`}
+          >
+            <div
+              className={`${styles.topNoLyrics} ${controls.transitioning ? styles.transitioning : ''}`}
+            >
+              <NoLyricsView status={playerStatus} active={!showLyrics} artSize={heroArtSize} />
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className={styles.bottom}>
-        <ProgressBar status={playerStatus} onSeek={handleSeek} narrating={narrating} />
-        <Controls
-          isPaused={controls.isPaused}
-          shuffle={controls.shuffle}
-          repeat={controls.repeat}
-          disallowPrev={playerStatus.disallow_prev}
-          disallowNext={playerStatus.disallow_next}
-          isPodcast={isPodcast}
-          isDJ={isDJ}
-          showSave={!isPodcast}
-          saved={liked.saved}
-          onToggleSaved={liked.toggle}
-          onPrev={controls.onPrev}
-          onNext={controls.onNext}
-          onPlayPause={controls.onPlayPause}
-          onToggleShuffle={controls.onToggleShuffle}
-          onDJSignal={controls.onDJSignal}
-          onCycleRepeat={controls.onCycleRepeat}
-          onRewind15={() => seekRelative(-15000)}
-          onForward15={() => seekRelative(15000)}
-          onMore={() => setMenuOpen(true)}
+        <div className={styles.bottom}>
+          <ProgressBar status={playerStatus} onSeek={handleSeek} />
+          <Controls
+            isPaused={controls.isPaused}
+            shuffle={controls.shuffle}
+            repeat={controls.repeat}
+            disallowPrev={playerStatus.disallow_prev}
+            disallowNext={playerStatus.disallow_next}
+            isPodcast={isPodcast}
+            isDJ={isDJ}
+            showSave={!isPodcast}
+            saved={liked.saved}
+            onToggleSaved={liked.toggle}
+            onPrev={controls.onPrev}
+            onNext={controls.onNext}
+            onPlayPause={controls.onPlayPause}
+            onToggleShuffle={controls.onToggleShuffle}
+            onDJSignal={controls.onDJSignal}
+            onCycleRepeat={controls.onCycleRepeat}
+            onRewind15={() => seekRelative(-15000)}
+            onForward15={() => seekRelative(15000)}
+            onMore={() => setMenuOpen(true)}
+          />
+        </div>
+
+        <Menu
+          open={menuOpen}
+          onClose={closeMenu}
+          showLyrics={showLyrics}
+          onToggleLyrics={toggleLyrics}
+          karaokeLyrics={settings.karaokeLyrics}
+          onToggleKaraoke={toggleKaraoke}
+          voiceMic={settings.voiceMic}
+          onToggleVoiceMic={toggleVoiceMic}
+          currentDevice={playerStatus.device_name}
+          onOpenDevices={() => {
+            setMenuOpen(false)
+            setDeviceMenuOpen(true)
+          }}
+          onOpenBluetooth={() => {
+            setMenuOpen(false)
+            setBtMenuOpen(true)
+          }}
+          onOpenSettings={() => {
+            setMenuOpen(false)
+            setSettingsOpen(true)
+          }}
         />
+
+        {globalOverlays}
       </div>
-
-      <Menu
-        open={menuOpen}
-        onClose={closeMenu}
-        showLyrics={showLyrics}
-        onToggleLyrics={toggleLyrics}
-        karaokeLyrics={settings.karaokeLyrics}
-        onToggleKaraoke={toggleKaraoke}
-        voiceMic={settings.voiceMic}
-        onToggleVoiceMic={toggleVoiceMic}
-        currentDevice={playerStatus.device_name}
-        onOpenDevices={() => {
-          setMenuOpen(false)
-          setDeviceMenuOpen(true)
-        }}
-        onOpenBluetooth={() => {
-          setMenuOpen(false)
-          setBtMenuOpen(true)
-        }}
-        onOpenSettings={() => {
-          setMenuOpen(false)
-          setSettingsOpen(true)
-        }}
-      />
-
-      {globalOverlays}
-    </div>
+    </NarrationContext.Provider>
   )
 }

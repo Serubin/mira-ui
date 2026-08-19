@@ -5,6 +5,7 @@ import { Lyrics } from '../Lyrics'
 import { __resetLyricsCache } from '../../../hooks/useLyrics'
 import { server } from '../../../__tests__/msw-server'
 import { activeStatus } from '../../../__tests__/fixtures/observer'
+import { NarrationContext } from '@/hooks/useDJNarration'
 
 beforeEach(() => {
   __resetLyricsCache()
@@ -196,7 +197,11 @@ describe('lyrics rendered DOM', () => {
     const { rerender } = render(<Lyrics status={TRACK_STATUS} />)
     expect(await screen.findByText('Stale line from the last song')).toBeInTheDocument()
 
-    rerender(<Lyrics status={TRACK_STATUS} narrating={true} />)
+    rerender(
+      <NarrationContext.Provider value={{ narrating: true, title: 'Up next', artist: 'DJ X' }}>
+        <Lyrics status={TRACK_STATUS} />
+      </NarrationContext.Provider>,
+    )
 
     expect(screen.getByText(/no lyrics available/i)).toBeInTheDocument()
     expect(screen.queryByText('Stale line from the last song')).toBeNull()

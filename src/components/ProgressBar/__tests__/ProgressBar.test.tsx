@@ -2,6 +2,16 @@ import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { ProgressBar } from '../ProgressBar'
 import { activeStatus } from '../../../__tests__/fixtures/observer'
+import { NarrationContext } from '@/hooks/useDJNarration'
+
+// the DJ hold is stateful and lives above these components, so it arrives via context
+function talking(node: React.ReactNode) {
+  return (
+    <NarrationContext.Provider value={{ narrating: true, title: 'Up next', artist: 'DJ X' }}>
+      {node}
+    </NarrationContext.Provider>
+  )
+}
 
 // transition logic is in scrubMachine.test.ts
 
@@ -90,7 +100,7 @@ describe('ProgressBar DOM event wiring', () => {
   it('greys out and refuses seeks while the DJ is talking', () => {
     // the position belongs to the next song, not the speech you are hearing
     const onSeek = vi.fn()
-    render(<ProgressBar status={activeStatus} onSeek={onSeek} narrating={true} />)
+    render(talking(<ProgressBar status={activeStatus} onSeek={onSeek} />))
 
     const slider = screen.getByRole('slider')
     mockBarRect(slider, 800)
@@ -104,7 +114,7 @@ describe('ProgressBar DOM event wiring', () => {
   })
 
   it('shows no times and no fill while the DJ is talking', () => {
-    const { container, rerender } = render(<ProgressBar status={activeStatus} narrating={true} />)
+    const { container, rerender } = render(talking(<ProgressBar status={activeStatus} />))
 
     const times = container.querySelectorAll('span')
     expect(times.length).toBe(2)
@@ -114,13 +124,14 @@ describe('ProgressBar DOM event wiring', () => {
     expect((fill as HTMLElement).style.transform).toBe('scaleX(0)')
 
     // and the real duration comes back once the DJ stops
-    rerender(<ProgressBar status={activeStatus} narrating={false} />)
+    rerender(<ProgressBar status={activeStatus} />)
     expect(container.querySelectorAll('span')[1].textContent).not.toBe('')
   })
 
   it('stays seekable when the DJ is not talking', () => {
     const onSeek = vi.fn()
-    render(<ProgressBar status={activeStatus} onSeek={onSeek} narrating={false} />)
+    // no provider at all: the context default must mean "not narrating"
+    render(<ProgressBar status={activeStatus} onSeek={onSeek} />)
     expect(screen.getByRole('slider')).toHaveAttribute('aria-disabled', 'false')
   })
 })
