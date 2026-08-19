@@ -34,6 +34,8 @@ const NOT_NARRATING: DJNarration = { narrating: false, title: '', artist: '' }
 // a narration item seen on the wire, and how much of its speech is left
 export interface SeenNarration {
   uri: string
+  // shared with the song the narration introduces, so it says what the hold belongs to
+  trackId: string
   ms: number
   title: string
   artist: string
@@ -44,6 +46,7 @@ export function seenNarrationFrom(status: ObserverStatusActive): SeenNarration {
   const remaining = status.duration > 0 ? status.duration - status.position : DEFAULT_NARRATION_MS
   return {
     uri: status.track_uri,
+    trackId: status.track_id,
     ms: Math.min(Math.max(remaining, 0) || DEFAULT_NARRATION_MS, MAX_NARRATION_MS),
     title: status.track_name,
     artist: status.track_artist,
@@ -67,8 +70,12 @@ export function useDJNarration(
   if (inDJSet && seen != null && state.armedUri !== seen.uri) {
     current = seen
     setState({ armedUri: seen.uri, active: seen })
-  } else if (!inDJSet && state.active !== null) {
-    // keep armedUri: a spent record must not re-arm if the set is re-entered
+  } else if (
+    current !== null &&
+    (!inDJSet || status == null || status.track_id !== current.trackId)
+  ) {
+    // the speech has no subject once the track it introduced is gone, eg. a skip.
+    // keep armedUri: a spent record must not re-arm
     current = null
     setState((prev) => ({ ...prev, active: null }))
   }

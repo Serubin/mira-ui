@@ -18,7 +18,8 @@ function djSong(over: Partial<ObserverStatusActive> = {}): ObserverStatusActive 
   return {
     ...activeStatus,
     context_uri: DJ_URI,
-    track_uri: 'spotify:track:song1',
+    track_uri: 'spotify:track:shared1',
+    track_id: 'shared1',
     track_name: 'Joshua Tree',
     track_artist: 'Cautious Clay',
     track_image: 'https://x/song.jpg',
@@ -33,8 +34,9 @@ function djNarration(over: Partial<ObserverStatusActive> = {}): ObserverStatusAc
   return {
     ...activeStatus,
     context_uri: DJ_URI,
-    // narration uris are ephemeral and unique per narration
-    track_uri: 'spotify:track:narration1',
+    // shares the id of the song it introduces, differing only in scheme
+    track_uri: 'spotify:media:shared1',
+    track_id: 'shared1',
     track_name: 'Up next',
     track_artist: 'DJ X',
     track_image: 'https://lexicon-assets.spotifycdn.com/Your-DJ-Cover-Art-300.png',
@@ -48,6 +50,14 @@ function djNarration(over: Partial<ObserverStatusActive> = {}): ObserverStatusAc
     },
     ...over,
   }
+}
+
+function djSkipped(): ObserverStatusActive {
+  return djSong({
+    track_uri: 'spotify:track:other2',
+    track_id: 'other2',
+    track_name: 'Something Else',
+  })
 }
 
 describe('isDJContext', () => {
@@ -78,7 +88,8 @@ describe('seenNarrationFrom', () => {
   it('takes the remaining speech time from the narration item', () => {
     // duration 5302 - position 203
     expect(seenNarrationFrom(djNarration())).toEqual({
-      uri: 'spotify:track:narration1',
+      uri: 'spotify:media:shared1',
+      trackId: 'shared1',
       ms: 5099,
       title: 'Up next',
       artist: 'DJ X',
@@ -162,9 +173,14 @@ describe('useDJNarration', () => {
     expect(result.current.narrating).toBe(false)
 
     const second = seenNarrationFrom(
-      djNarration({ track_uri: 'spotify:track:narration2', duration: 4597, position: 253 }),
+      djNarration({
+        track_uri: 'spotify:media:shared2',
+        track_id: 'shared2',
+        duration: 4597,
+        position: 253,
+      }),
     )
-    rerender([djSong(), second])
+    rerender([djSong({ track_id: 'shared2' }), second])
     expect(result.current.narrating).toBe(true)
   })
 
@@ -177,6 +193,24 @@ describe('useDJNarration', () => {
 
     rerender([djSong(), seen])
     expect(result.current).toBe(first)
+  })
+
+  it('drops the hold when the track is skipped during the narration', () => {
+    const seen = seenNarrationFrom(djNarration())
+    const { result, rerender } = setup([djNarration(), seen])
+    expect(result.current.narrating).toBe(true)
+
+    rerender([djSkipped(), seen])
+    expect(result.current.narrating).toBe(false)
+  })
+
+  it('drops the hold when the song it introduced is skipped', () => {
+    const seen = seenNarrationFrom(djNarration())
+    const { result, rerender } = setup([djSong(), seen])
+    expect(result.current.narrating).toBe(true)
+
+    rerender([djSkipped(), seen])
+    expect(result.current.narrating).toBe(false)
   })
 
   it('does not replay a spent narration when the DJ set is re-entered', () => {

@@ -319,7 +319,7 @@ describe('useObserver', () => {
 
     const narration = {
       ...baseWire,
-      TrackUri: 'spotify:track:narration1',
+      TrackUri: 'spotify:media:shared1',
       TrackName: 'Up next',
       TrackArtist: 'DJ X',
       ContextUri: 'spotify:playlist:37i9dQZF1EYkqdzj48dyYq',
@@ -329,7 +329,7 @@ describe('useObserver', () => {
     }
     const song = {
       ...baseWire,
-      TrackUri: 'spotify:track:song1',
+      TrackUri: 'spotify:track:shared1',
       TrackName: 'Joshua Tree',
       TrackArtist: 'Cautious Clay',
       ContextUri: 'spotify:playlist:37i9dQZF1EYkqdzj48dyYq',
@@ -348,7 +348,8 @@ describe('useObserver', () => {
     expect(result.current.status).toMatchObject({ track_name: 'Joshua Tree' })
     // ...but the narration survived, so the hold can still be armed from it
     expect(result.current.narration).toEqual({
-      uri: 'spotify:track:narration1',
+      uri: 'spotify:media:shared1',
+      trackId: 'shared1',
       ms: 5099,
       title: 'Up next',
       artist: 'DJ X',
@@ -361,7 +362,7 @@ describe('useObserver', () => {
 
     const narration = {
       ...baseWire,
-      TrackUri: 'spotify:track:narration1',
+      TrackUri: 'spotify:media:shared1',
       TrackName: 'Up next',
       TrackArtist: 'DJ X',
       Duration: 4597,
@@ -372,7 +373,7 @@ describe('useObserver', () => {
     await act(async () => {
       fireEvent({ type: 'observer_track_changed', data: narration } as ApiEvent)
     })
-    expect(result.current.narration?.uri).toBe('spotify:track:narration1')
+    expect(result.current.narration?.uri).toBe('spotify:media:shared1')
 
     await act(async () => {
       fireEvent({
@@ -381,6 +382,6 @@ describe('useObserver', () => {
       } as ApiEvent)
     })
     // a plain status must not erase it
-    expect(result.current.narration?.uri).toBe('spotify:track:narration1')
+    expect(result.current.narration?.uri).toBe('spotify:media:shared1')
   })
 })
