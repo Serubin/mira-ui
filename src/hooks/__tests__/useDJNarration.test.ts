@@ -114,8 +114,7 @@ describe('useDJNarration', () => {
   })
 
   it('holds even though the narration item was never rendered as current status', () => {
-    // this is the Spotify-triggered path: React batches the narration away, so the hook only
-    // ever sees the next song as status, plus the record the reducer captured
+    // the Spotify-triggered path: the hook only ever sees the next song as status
     const seen = seenNarrationFrom(djNarration())
     const { result } = setup([djSong(), seen])
 
@@ -167,6 +166,31 @@ describe('useDJNarration', () => {
     )
     rerender([djSong(), second])
     expect(result.current.narrating).toBe(true)
+  })
+
+  it('keeps the same value identity across renders while narrating', () => {
+    // it is provided through context, so a fresh object each render would re-render consumers
+    const seen = seenNarrationFrom(djNarration())
+    const { result, rerender } = setup([djSong(), seen])
+    const first = result.current
+    expect(first.narrating).toBe(true)
+
+    rerender([djSong(), seen])
+    expect(result.current).toBe(first)
+  })
+
+  it('does not replay a spent narration when the DJ set is re-entered', () => {
+    // the observer keeps the last narration record, so re-entering the set must not re-arm it
+    const seen = seenNarrationFrom(djNarration())
+    const { result, rerender } = setup([djNarration(), seen])
+    expect(result.current.narrating).toBe(true)
+
+    const normal = { ...activeStatus, context_uri: 'spotify:playlist:regular', raw_metadata: null }
+    rerender([normal, seen])
+    expect(result.current.narrating).toBe(false)
+
+    rerender([djSong(), seen])
+    expect(result.current.narrating).toBe(false)
   })
 
   it('drops the hold when playback leaves the DJ set', () => {

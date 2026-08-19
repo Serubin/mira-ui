@@ -129,8 +129,7 @@ const LyricLine = memo(function LyricLine({
 
 function LyricsImpl({ status, onSeek, active = true }: Props) {
   const isPodcast = status.track_uri.startsWith('spotify:episode:')
-  // status already points at the next song while the DJ speaks, so its lyrics are the wrong
-  // ones to look up or show
+  // status points at the next song while the DJ speaks
   const { narrating } = useNarration()
   const { lyricOffsetMs, karaokeLyrics } = useSettings()
   // touch and wheel deltas arrive in viewport space; the scroll offset below is layout
@@ -310,8 +309,7 @@ function LyricsImpl({ status, onSeek, active = true }: Props) {
     snapBackTimer.current = window.setTimeout(snapBack, SNAP_BACK_MS)
   }
 
-  // The DJ has no lyrics. This has to short-circuit rather than rely on the hook, because
-  // useLyrics returns early when disabled and so keeps the previous track's lyrics in state.
+  // the DJ has no lyrics, and useLyrics keeps the previous track's when disabled
   if (narrating) {
     return (
       <div className={`${styles.lyrics} ${styles.state}`} style={bgStyle} ref={containerRef}>

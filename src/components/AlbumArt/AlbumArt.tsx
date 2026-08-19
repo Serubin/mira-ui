@@ -6,7 +6,7 @@ interface Props {
   src: string | undefined
   size?: number
   alt?: string
-  // narration segments carry no artwork, so show the DJ mark instead of an empty box
+  // show the DJ mark instead of an empty box
   djFallback?: boolean
 }
 
@@ -42,7 +42,7 @@ function AlbumArtImpl({ src, size = 200, alt = '', djFallback = false }: Props) 
 
   const sizePx: React.CSSProperties = { width: size, height: size }
 
-  // shared by both crossfade layers so the fade timing is unchanged
+  // shared by both crossfade layers
   const empty = djFallback ? (
     <div className={styles.djFallback} role="img" aria-label="DJ">
       <DJIcon size={Math.round(size * 0.55)} />

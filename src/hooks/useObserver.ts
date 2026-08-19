@@ -10,8 +10,7 @@ interface ObserverState {
   error: string | null
   connected: boolean
   setupProgress: SetupProgress | null
-  // last DJ narration seen on the wire. Captured here because the reducer processes every
-  // action, whereas React may batch the narration away before it is ever rendered.
+  // last DJ narration seen on the wire; the reducer sees every action, renders may not
   narration: SeenNarration | null
 }
 
@@ -51,12 +50,9 @@ function reducer(state: ObserverState, action: Action): ObserverState {
         incoming.setting_up === undefined && prev !== undefined
           ? { ...incoming, setting_up: prev }
           : incoming
-      // Carried forward on ordinary statuses, so the song that supersedes a narration within
-      // ~350-900ms cannot erase it before the hold has been armed.
+      // carried forward so the song that supersedes a narration cannot erase it
       const narration =
-        status.active && isNarrationItem(status)
-          ? seenNarrationFrom(status)
-          : state.narration
+        status.active && isNarrationItem(status) ? seenNarrationFrom(status) : state.narration
 
       return {
         ...state,

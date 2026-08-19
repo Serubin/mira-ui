@@ -163,7 +163,7 @@ export function usePlayerControls(params: UsePlayerControlsParams): UsePlayerCon
     })
   }, [reportCommandError, setShuffle, shuffle])
 
-  // nothing to predict optimistically, the new set arrives on the next status update
+  // nothing to predict; the new set arrives on the next status update
   const onDJSignal = useCallback(() => {
     if (!djSignal) return
     void Promise.resolve(djSignal()).catch((err) => {

@@ -1,35 +1,22 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 
 import type { ObserverStatusActive } from '@/api/types'
 
-// Every item in a DJ set - songs included - carries agentic_product_type: "dj", so this is
-// the primary signal. The playlist uri is kept as a secondary one.
 const DJ_PLAYLIST_URI = 'spotify:playlist:37i9dQZF1EYkqdzj48dyYq'
 
-// Spotify reports a narration item for only ~350-900ms but its duration is the real length
-// of the speech (~5s observed), and the client keeps talking over the song that follows.
+// narration length when the item does not report one, and a ceiling on any it does
 const DEFAULT_NARRATION_MS = 5_000
-// a bad duration must not be able to wedge the DJ presentation on screen
 const MAX_NARRATION_MS = 15_000
 
-/**
- * Whether this status *is* the narration item. raw_metadata is the verbatim ProvidedTrack
- * metadata map from the daemon, and these keys appear on the narration item only, never on the
- * songs between narrations.
- *
- * This is a snapshot check, so it answers "is the narration item current", NOT "is the DJ
- * talking". Spotify keeps the item current for only 350-900ms while the speech runs ~5s, and
- * when the jump comes from the Spotify app the item is batched away before it ever renders.
- * Use `useNarration()` for the second question; this belongs in the observer reducer, which is
- * the one place that sees every status.
- */
+// whether this status is the narration item itself, not whether the DJ is talking
+// (the DJ X fallback is a display string, so it may not hold in other locales)
 export function isNarrationItem(status: ObserverStatusActive | null): boolean {
   const metadata = status?.raw_metadata
   if (!metadata) return false
   return metadata.is_narration === 'true' || metadata.album_artist_name === 'DJ X'
 }
 
-/** Whether a DJ set is playing at all. Used to decide the shuffle-slot button. */
+// whether a DJ set is playing
 export function isDJContext(status: ObserverStatusActive | null): boolean {
   if (!status) return false
   if (status.raw_metadata?.agentic_product_type === 'dj') return true
@@ -37,7 +24,6 @@ export function isDJContext(status: ObserverStatusActive | null): boolean {
 }
 
 export interface DJNarration {
-  /** true while the DJ is speaking, including after status moves on to the next song */
   narrating: boolean
   title: string
   artist: string
@@ -45,24 +31,15 @@ export interface DJNarration {
 
 const NOT_NARRATING: DJNarration = { narrating: false, title: '', artist: '' }
 
-/**
- * A narration item observed on the wire.
- *
- * Captured in the observer reducer rather than during render: the narration item is
- * superseded by the next song within ~350-900ms, and when both events land together React
- * batches them and never renders the narration. A reducer sees every action regardless.
- */
+// a narration item seen on the wire, and how much of its speech is left
 export interface SeenNarration {
-  // ephemeral and unique per narration, so it doubles as the arm-once key
   uri: string
-  // how much longer the DJ has to speak. A duration rather than a deadline, so nothing here
-  // has to read the clock during render
   ms: number
   title: string
   artist: string
 }
 
-/** Builds the record stored by the observer reducer. Pure: no clock, no refs. */
+// builds the record the observer reducer stores
 export function seenNarrationFrom(status: ObserverStatusActive): SeenNarration {
   const remaining = status.duration > 0 ? status.duration - status.position : DEFAULT_NARRATION_MS
   return {
@@ -73,20 +50,12 @@ export function seenNarrationFrom(status: ObserverStatusActive): SeenNarration {
   }
 }
 
-/**
- * Whether the DJ is talking right now.
- *
- * The narration item disappears from the player state long before the speech ends, so we
- * take its duration as the authority and hold the presentation for the remainder. Without
- * the hold the screen flashes the DJ for half a second and then reveals the song while the
- * DJ is still mid-sentence.
- */
+// whether the DJ is talking, held for the length of the speech
 export function useDJNarration(
   status: ObserverStatusActive | null,
   seen: SeenNarration | null,
 ): DJNarration {
-  // armedUri outlives the hold itself. The observer keeps the last narration record around,
-  // so without remembering what we already consumed the hold would re-arm forever.
+  // armedUri outlives the hold, so a spent record cannot re-arm it
   const [state, setState] = useState<{ armedUri: string; active: SeenNarration | null }>({
     armedUri: '',
     active: null,
@@ -94,21 +63,17 @@ export function useDJNarration(
 
   const inDJSet = isDJContext(status)
 
-  // Armed from what the observer reducer saw, not from the rendered status: when Spotify
-  // triggers the jump, the narration and the next song arrive together and React never
-  // renders the narration item at all.
   let current = state.active
   if (inDJSet && seen != null && state.armedUri !== seen.uri) {
     current = seen
     setState({ armedUri: seen.uri, active: seen })
-  } else if (!inDJSet && (state.active !== null || state.armedUri !== '')) {
-    // leaving the set drops the hold, so a normal playlist can never inherit it
+  } else if (!inDJSet && state.active !== null) {
+    // keep armedUri: a spent record must not re-arm if the set is re-entered
     current = null
-    setState({ armedUri: '', active: null })
+    setState((prev) => ({ ...prev, active: null }))
   }
 
-  // re-render when the speech should be over. setState runs in the timer callback, not in the
-  // effect body, so this stays clear of the repo's set-state-in-effect rule.
+  // ends the hold. setState runs in the timer, not the effect body, per set-state-in-effect
   useEffect(() => {
     if (!current) return
     const t = window.setTimeout(
@@ -118,23 +83,18 @@ export function useDJNarration(
     return () => window.clearTimeout(t)
   }, [current])
 
-  if (current) {
-    // status has moved on to the next song, so show what the narration item reported. The
-    // timer above is what ends the hold, so no clock read is needed here.
-    return { narrating: true, title: current.title, artist: current.artist }
-  }
-  return NOT_NARRATING
+  // memoised so the context value keeps its identity and consumers do not re-render each tick
+  return useMemo(
+    () =>
+      current ? { narrating: true, title: current.title, artist: current.artist } : NOT_NARRATING,
+    [current],
+  )
 }
 
-/**
- * The narration state, provided once by App from `useDJNarration`.
- *
- * Defaults to NOT_NARRATING so a component rendered without a provider simply reads "not
- * narrating" rather than throwing, which keeps isolated component tests wrapper-free.
- */
+// narration state, provided by App. Defaults to not narrating so consumers work without it
 export const NarrationContext = createContext<DJNarration>(NOT_NARRATING)
 
-/** Read the narration state. Prefer this over passing it down as a prop. */
+// reads the narration state
 export function useNarration(): DJNarration {
   return useContext(NarrationContext)
 }
@@ -142,17 +102,11 @@ export function useNarration(): DJNarration {
 export interface TrackPresentation {
   title: string
   artist: string
-  /** empty while narrating: the status artwork belongs to the song that plays next */
   art: string
-  /** tells AlbumArt to draw the DJ mark instead of an empty placeholder */
   djFallback: boolean
 }
 
-/**
- * What to actually show for the current item. While the DJ talks, status describes the song
- * queued behind the speech, so none of it may be displayed. Single source of truth for that
- * substitution, since more than one surface needs it.
- */
+// what to display for the current item, substituting the DJ while it talks
 export function presentTrack(
   status: ObserverStatusActive,
   narration: DJNarration,

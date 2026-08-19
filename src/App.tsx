@@ -360,13 +360,7 @@ export default function App() {
 
   // which offline screen wins
   let offlineScreen:
-    | 'checking'
-    | 'tethering'
-    | 'reconnecting'
-    | 'chooser'
-    | 'pc'
-    | 'bluetooth'
-    | null = null
+    'checking' | 'tethering' | 'reconnecting' | 'chooser' | 'pc' | 'bluetooth' | null = null
   if (offlineActive) {
     if (offlineChecking) {
       offlineScreen = 'checking'
@@ -609,9 +603,9 @@ export default function App() {
   })
 
   const savableStatus = status && status.active ? status : reconnecting ? heldStatus : null
-  // same status the player renders below, resolved up here so the hook stays unconditional
+  // resolved here so the hook stays unconditional
   const isDJ = isDJContext(savableStatus)
-  // owns the hold that keeps the DJ on screen for the whole spoken line
+  // owns the DJ hold
   const narration = useDJNarration(savableStatus, seenNarration)
   const savableUri =
     savableStatus && !savableStatus.track_uri.startsWith('spotify:episode:')
@@ -1001,7 +995,7 @@ export default function App() {
   const playerStatus = status && status.active ? status : reconnecting ? heldStatus : null
   if (!playerStatus || !playerStatus.active) return null
   const isPodcast = playerStatus.track_uri.startsWith('spotify:episode:')
-  // narration items carry the next track's metadata, so presentTrack substitutes the DJ
+  // presentTrack substitutes the DJ while it talks
   const shown = presentTrack(playerStatus, narration)
 
   // noti over the player on a network drops
@@ -1009,7 +1003,7 @@ export default function App() {
     forced === 'reconnect-banner' ? 'offline' : reconnecting ? dropReason : null
 
   return (
-    // provided once here: the hold is stateful, so consumers cannot derive it from status
+    // provided once for all consumers
     <NarrationContext.Provider value={narration}>
       <div
         className={`${styles.app} ${styles.appPlaying}`}

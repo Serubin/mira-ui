@@ -31,8 +31,7 @@ $lyric-unsynced: rgba(255, 255, 255, 0.6);
 $accent: #1ed760;
 $accent-dim: rgba(30, 215, 96, 0.32);
 
-// Spotify DJ presentation. Kept separate from $accent on purpose: that is the brand green used
-// for toggle-on states, and the DJ mark should not drift with it.
+// Spotify DJ presentation. Separate from $accent, which drives toggle-on states
 $dj-green: #65d68c;
 $dj-blue: #285ca2;
 

@@ -30,8 +30,7 @@ function reducer(state: ScrubState, event: ScrubEvent): ScrubState {
 }
 
 function ProgressBarImpl({ status, onSeek }: Props) {
-  // while the DJ speaks, status points at the next song, so the position here is not the audio
-  // you are hearing. Reuses the existing disallow_seek treatment: grey fill, no handle, no seek.
+  // the position belongs to the next song, not the speech, so reuse the disabled treatment
   const { narrating } = useNarration()
   const seekDisabled = !!status.disallow_seek || narrating
   // the bar width below is measured once per effect run, so it has to re-measure when
@@ -61,7 +60,7 @@ function ProgressBarImpl({ status, onSeek }: Props) {
   useEffect(() => {
     const right = rightLabelRef.current
     if (!right) return
-    // no times at all while the DJ talks; the duration belongs to the next song
+    // no times while the DJ talks: the duration belongs to the next song
     right.textContent = narrating ? '' : formatTime(status.duration)
   }, [status.duration, narrating])
 

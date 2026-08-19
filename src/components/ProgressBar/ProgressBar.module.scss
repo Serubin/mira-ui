@@ -38,8 +38,7 @@
   cursor: default;
 }
 
-// while the DJ talks the bar means nothing, so dim it rather than recolour it. Kept separate
-// from .hitDisabled so the disallow_seek appearance is unaffected.
+// dim the bar while the DJ talks. Separate from .hitDisabled to leave disallow_seek alone
 .inert .barClip {
   opacity: 0.45;
 }

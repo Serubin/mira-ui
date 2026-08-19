@@ -183,8 +183,7 @@ describe('lyrics rendered DOM', () => {
   })
 
   it('shows "No lyrics available" while the DJ is talking', async () => {
-    // must not show the previous track's lyrics: useLyrics returns early when disabled and
-    // therefore keeps them in state, so the component has to short-circuit
+    // must not show the previous track's lyrics, which useLyrics still holds
     server.use(
       http.get('*/lyrics/abc', () =>
         HttpResponse.json({

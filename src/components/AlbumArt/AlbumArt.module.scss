@@ -30,7 +30,7 @@
   background: linear-gradient(135deg, $surface-elev, $surface);
 }
 
-// solid blue tile with the green DJ mark centered, the way Spotify presents the DJ
+// solid blue tile with the green DJ mark centered
 .djFallback {
   @include flex-center;
   width: 100%;

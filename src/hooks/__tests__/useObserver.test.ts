@@ -312,8 +312,7 @@ describe('useObserver', () => {
   })
 
   it('captures a DJ narration even when the next song supersedes it in the same batch', async () => {
-    // The narration item lives ~350-900ms. When both events land together React batches them
-    // and only the song is ever rendered, so the narration has to be captured in the reducer.
+    // batched together, only the song renders, so the reducer has to capture the narration
     server.use(http.get('*/observer/status', () => new Promise(() => undefined)))
 
     const { result } = renderHook(() => useObserver())
@@ -376,7 +375,10 @@ describe('useObserver', () => {
     expect(result.current.narration?.uri).toBe('spotify:track:narration1')
 
     await act(async () => {
-      fireEvent({ type: 'observer_state_changed', data: { ...baseWire, Position: 9000 } } as ApiEvent)
+      fireEvent({
+        type: 'observer_state_changed',
+        data: { ...baseWire, Position: 9000 },
+      } as ApiEvent)
     })
     // a plain status must not erase it
     expect(result.current.narration?.uri).toBe('spotify:track:narration1')

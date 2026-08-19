@@ -25,7 +25,7 @@ interface Props {
   disallowNext?: boolean
   // podcast mode: shuffle/repeat become rewind/forward 15s
   isPodcast?: boolean
-  // dj mode: shuffle becomes the switch-set button, since a DJ set is sequenced by Spotify
+  // dj mode: shuffle becomes the switch-set button
   isDJ?: boolean
   showSave?: boolean
   saved?: boolean
@@ -63,8 +63,7 @@ function ControlsImpl({
   onForward15,
 }: Props) {
   const repeatActive = repeat !== 'off'
-  // Spotify sequences a DJ set, so repeating it means nothing. Disabled for the whole set,
-  // matching the shuffle slot, which the DJ button takes over for the same reason.
+  // repeating a DJ set means nothing, so it is disabled for the whole set
   const repeatDisabled = isDJ
 
   return (
@@ -84,7 +83,7 @@ function ControlsImpl({
             <SeekBack15Icon size={32} />
           </button>
         ) : isDJ ? (
-          // momentary action, not a toggle, so no aria-pressed and no active accent
+          // momentary action, not a toggle
           <button
             type="button"
             className={`${styles.btn} ${styles.btnXs}`}
