@@ -1,5 +1,6 @@
 import { memo } from 'react'
 import {
+  DJIcon,
   MoreIcon,
   NextIcon,
   PauseIcon,
@@ -24,6 +25,8 @@ interface Props {
   disallowNext?: boolean
   // podcast mode: shuffle/repeat become rewind/forward 15s
   isPodcast?: boolean
+  // dj mode: shuffle becomes the switch-set button
+  isDJ?: boolean
   showSave?: boolean
   saved?: boolean
   onToggleSaved?: () => void
@@ -32,6 +35,7 @@ interface Props {
   onNext?: () => void
   onMore?: () => void
   onToggleShuffle?: () => void
+  onDJSignal?: () => void
   onCycleRepeat?: () => void
   onRewind15?: () => void
   onForward15?: () => void
@@ -44,6 +48,7 @@ function ControlsImpl({
   disallowPrev = false,
   disallowNext = false,
   isPodcast = false,
+  isDJ = false,
   showSave = false,
   saved = false,
   onToggleSaved,
@@ -52,11 +57,14 @@ function ControlsImpl({
   onNext,
   onMore,
   onToggleShuffle,
+  onDJSignal,
   onCycleRepeat,
   onRewind15,
   onForward15,
 }: Props) {
   const repeatActive = repeat !== 'off'
+  // repeating a DJ set means nothing, so it is disabled for the whole set
+  const repeatDisabled = isDJ
 
   return (
     <div className={styles.row}>
@@ -73,6 +81,16 @@ function ControlsImpl({
             onClick={onRewind15}
           >
             <SeekBack15Icon size={32} />
+          </button>
+        ) : isDJ ? (
+          // momentary action, not a toggle
+          <button
+            type="button"
+            className={`${styles.btn} ${styles.btnXs}`}
+            aria-label="Switch DJ set"
+            onClick={onDJSignal}
+          >
+            <DJIcon size={32} />
           </button>
         ) : (
           <button
@@ -129,10 +147,12 @@ function ControlsImpl({
         ) : (
           <button
             type="button"
-            className={`${styles.btn} ${styles.btnXs} ${repeatActive ? styles.toggleOn : ''}`}
+            className={`${styles.btn} ${styles.btnXs} ${repeatActive && !repeatDisabled ? styles.toggleOn : ''} ${repeatDisabled ? styles.btnDisabled : ''}`}
             aria-label={`Repeat ${repeat}`}
             aria-pressed={repeatActive}
-            onClick={onCycleRepeat}
+            aria-disabled={repeatDisabled}
+            disabled={repeatDisabled}
+            onClick={repeatDisabled ? undefined : onCycleRepeat}
           >
             {repeat === 'track' ? <RepeatOneIcon size={32} /> : <RepeatIcon size={32} />}
           </button>

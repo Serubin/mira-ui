@@ -1,6 +1,7 @@
 import { memo } from 'react'
 import { AlbumArt } from '@/components/AlbumArt'
 import { Marquee } from '@/components/TrackInfo/Marquee'
+import { presentTrack, useNarration } from '@/hooks/useDJNarration'
 import type { ObserverStatusActive } from '@/api/types'
 import styles from './NoLyricsView.module.scss'
 
@@ -14,7 +15,8 @@ interface Props {
 const ART_SIZE = 220
 
 function NoLyricsViewImpl({ status, active = true, artSize = ART_SIZE }: Props) {
-  const art = status.track_image
+  const narration = useNarration()
+  const { title, artist, art, djFallback } = presentTrack(status, narration)
   const glowStyle = art ? ({ '--art': `url("${art}")` } as React.CSSProperties) : undefined
 
   return (
@@ -31,12 +33,12 @@ function NoLyricsViewImpl({ status, active = true, artSize = ART_SIZE }: Props) 
           </div>
         ) : null}
         <div className={styles.cover}>
-          <AlbumArt src={status.track_image} size={artSize} />
+          <AlbumArt src={art} size={artSize} djFallback={djFallback} />
         </div>
       </div>
       <div className={styles.meta}>
-        <Marquee text={status.track_name || 'Unknown track'} className={styles.title} />
-        <Marquee text={status.track_artist || 'Unknown artist'} className={styles.artist} />
+        <Marquee text={title || 'Unknown track'} className={styles.title} />
+        <Marquee text={artist || 'Unknown artist'} className={styles.artist} />
       </div>
     </div>
   )

@@ -1,6 +1,7 @@
 import { useEffect, useReducer } from 'react'
 import { fetchObserverStatus, remoteStateToStatus } from '@/api/client'
 import { subscribeConnection, subscribeEvents } from '@/api/eventBus'
+import { isNarrationItem, seenNarrationFrom, type SeenNarration } from '@/hooks/useDJNarration'
 import type { ApiEvent, ObserverStatus, RemoteStateWire, SetupProgress } from '@/api/types'
 
 interface ObserverState {
@@ -9,6 +10,8 @@ interface ObserverState {
   error: string | null
   connected: boolean
   setupProgress: SetupProgress | null
+  // last DJ narration seen on the wire; the reducer sees every action, renders may not
+  narration: SeenNarration | null
 }
 
 type Action =
@@ -24,6 +27,7 @@ const initial: ObserverState = {
   error: null,
   connected: false,
   setupProgress: null,
+  narration: null,
 }
 
 function mergeProgress(
@@ -46,12 +50,17 @@ function reducer(state: ObserverState, action: Action): ObserverState {
         incoming.setting_up === undefined && prev !== undefined
           ? { ...incoming, setting_up: prev }
           : incoming
+      // carried forward so the song that supersedes a narration cannot erase it
+      const narration =
+        status.active && isNarrationItem(status) ? seenNarrationFrom(status) : state.narration
+
       return {
         ...state,
         status,
         loading: false,
         error: null,
         setupProgress: mergeProgress(state.setupProgress, incoming.setting_up_progress),
+        narration,
       }
     }
     case 'error':

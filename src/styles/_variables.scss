@@ -31,6 +31,10 @@ $lyric-unsynced: rgba(255, 255, 255, 0.6);
 $accent: #1ed760;
 $accent-dim: rgba(30, 215, 96, 0.32);
 
+// Spotify DJ presentation. Separate from $accent, which drives toggle-on states
+$dj-green: #65d68c;
+$dj-blue: #285ca2;
+
 $menu-bg: rgba(28, 28, 30, 0.96);
 $menu-border: rgba(255, 255, 255, 0.08);
 

@@ -310,4 +310,78 @@ describe('useObserver', () => {
     })
     expect(requests).toBe(2)
   })
+
+  it('captures a DJ narration even when the next song supersedes it in the same batch', async () => {
+    // batched together, only the song renders, so the reducer has to capture the narration
+    server.use(http.get('*/observer/status', () => new Promise(() => undefined)))
+
+    const { result } = renderHook(() => useObserver())
+
+    const narration = {
+      ...baseWire,
+      TrackUri: 'spotify:media:shared1',
+      TrackName: 'Up next',
+      TrackArtist: 'DJ X',
+      ContextUri: 'spotify:playlist:37i9dQZF1EYkqdzj48dyYq',
+      Duration: 5302,
+      Position: 203,
+      RawMetadata: { agentic_product_type: 'dj', is_narration: 'true' },
+    }
+    const song = {
+      ...baseWire,
+      TrackUri: 'spotify:track:shared1',
+      TrackName: 'Joshua Tree',
+      TrackArtist: 'Cautious Clay',
+      ContextUri: 'spotify:playlist:37i9dQZF1EYkqdzj48dyYq',
+      Duration: 197551,
+      Position: 357,
+      RawMetadata: { agentic_product_type: 'dj' },
+    }
+
+    // both in one act(), so React collapses them into a single render
+    await act(async () => {
+      fireEvent({ type: 'observer_track_changed', data: narration } as ApiEvent)
+      fireEvent({ type: 'observer_track_changed', data: song } as ApiEvent)
+    })
+
+    // status shows the song, which is what made the DJ screen never appear...
+    expect(result.current.status).toMatchObject({ track_name: 'Joshua Tree' })
+    // ...but the narration survived, so the hold can still be armed from it
+    expect(result.current.narration).toEqual({
+      uri: 'spotify:media:shared1',
+      trackId: 'shared1',
+      ms: 5099,
+      title: 'Up next',
+      artist: 'DJ X',
+    })
+  })
+
+  it('keeps the narration record while ordinary songs stream past', async () => {
+    server.use(http.get('*/observer/status', () => new Promise(() => undefined)))
+    const { result } = renderHook(() => useObserver())
+
+    const narration = {
+      ...baseWire,
+      TrackUri: 'spotify:media:shared1',
+      TrackName: 'Up next',
+      TrackArtist: 'DJ X',
+      Duration: 4597,
+      Position: 253,
+      RawMetadata: { agentic_product_type: 'dj', is_narration: 'true' },
+    }
+
+    await act(async () => {
+      fireEvent({ type: 'observer_track_changed', data: narration } as ApiEvent)
+    })
+    expect(result.current.narration?.uri).toBe('spotify:media:shared1')
+
+    await act(async () => {
+      fireEvent({
+        type: 'observer_state_changed',
+        data: { ...baseWire, Position: 9000 },
+      } as ApiEvent)
+    })
+    // a plain status must not erase it
+    expect(result.current.narration?.uri).toBe('spotify:media:shared1')
+  })
 })

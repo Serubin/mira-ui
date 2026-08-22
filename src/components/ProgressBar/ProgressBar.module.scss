@@ -38,6 +38,11 @@
   cursor: default;
 }
 
+// dim the bar while the DJ talks. Separate from .hitDisabled to leave disallow_seek alone
+.inert .barClip {
+  opacity: 0.45;
+}
+
 .bar {
   position: relative;
   width: 100%;
