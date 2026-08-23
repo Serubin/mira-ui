@@ -8,12 +8,16 @@ const DJ_PLAYLIST_URI = 'spotify:playlist:37i9dQZF1EYkqdzj48dyYq'
 const DEFAULT_NARRATION_MS = 5_000
 const MAX_NARRATION_MS = 15_000
 
-// whether this status is the narration item itself, not whether the DJ is talking
-// (the DJ X fallback is a display string, so it may not hold in other locales)
+// whether a uri belongs to a narration. Queue entries carry no metadata, so this is all they have
+export function isNarrationUri(uri: string | undefined): boolean {
+  return uri?.startsWith('spotify:media:') ?? false
+}
+
+// whether this status is the narration item itself, not whether the DJ is talking.
+// the scheme is structural, raw_metadata is optional, so the uri is checked first
 export function isNarrationItem(status: ObserverStatusActive | null): boolean {
-  const metadata = status?.raw_metadata
-  if (!metadata) return false
-  return metadata.is_narration === 'true' || metadata.album_artist_name === 'DJ X'
+  if (!status) return false
+  return isNarrationUri(status.track_uri) || status.raw_metadata?.is_narration === 'true'
 }
 
 // whether a DJ set is playing

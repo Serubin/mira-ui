@@ -3,6 +3,7 @@ import { renderHook } from '@testing-library/react'
 import {
   isDJContext,
   isNarrationItem,
+  isNarrationUri,
   presentTrack,
   seenNarrationFrom,
   useDJNarration,
@@ -347,10 +348,37 @@ describe('presentTrack', () => {
   })
 })
 
+describe('isNarrationUri', () => {
+  it('separates the media scheme from tracks and episodes', () => {
+    expect(isNarrationUri('spotify:media:shared1')).toBe(true)
+    expect(isNarrationUri('spotify:track:shared1')).toBe(false)
+    expect(isNarrationUri('spotify:episode:abc')).toBe(false)
+    expect(isNarrationUri(undefined)).toBe(false)
+  })
+})
+
 describe('isNarrationItem', () => {
   it('is true for the narration item and false for the songs around it', () => {
     expect(isNarrationItem(djNarration())).toBe(true)
     expect(isNarrationItem(djSong())).toBe(false)
     expect(isNarrationItem(null)).toBe(false)
+  })
+
+  it('recognises a narration from the uri alone when metadata is absent', () => {
+    // raw_metadata is optional on the wire, and the media scheme is not
+    expect(isNarrationItem(djNarration({ raw_metadata: null }))).toBe(true)
+  })
+
+  it('still recognises a narration from is_narration when the uri is not media', () => {
+    const odd = djNarration({ track_uri: 'spotify:track:shared1' })
+    expect(isNarrationItem(odd)).toBe(true)
+  })
+
+  it('does not treat an artist named DJ X as a narration', () => {
+    // album_artist_name is a localised display string, so it is no longer a signal
+    const impostor = djSong({
+      raw_metadata: { agentic_product_type: 'dj', album_artist_name: 'DJ X' },
+    })
+    expect(isNarrationItem(impostor)).toBe(false)
   })
 })
