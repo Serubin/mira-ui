@@ -42,6 +42,16 @@ function mergeProgress(
   return next
 }
 
+// an outro carries the id of the song already playing and sits silent for seconds before
+// speaking, so its record waits for position to move. An intro speaks as soon as it appears,
+// where waiting would only add latency
+function narrationHeard(status: ObserverStatus, lastSongId: string): SeenNarration | null {
+  if (!status.active || !isNarrationItem(status)) return null
+  const isOutro = status.track_id === lastSongId
+  if (isOutro && status.position <= 0) return null
+  return seenNarrationFrom(status)
+}
+
 function reducer(state: ObserverState, action: Action): ObserverState {
   switch (action.type) {
     case 'loading':
@@ -53,14 +63,7 @@ function reducer(state: ObserverState, action: Action): ObserverState {
         incoming.setting_up === undefined && prev !== undefined
           ? { ...incoming, setting_up: prev }
           : incoming
-      const isNarr = status.active && isNarrationItem(status)
-      // an outro carries the id of the song already playing and sits silent for seconds before
-      // speaking; an intro starts at once, so waiting on its position would only add latency
-      const isOutro = isNarr && status.track_id === state.lastSongId
-      // carried forward so the song that supersedes a narration cannot erase it
-      const narration =
-        isNarr && (!isOutro || status.position > 0) ? seenNarrationFrom(status) : state.narration
-      const lastSongId = status.active && !isNarr ? status.track_id : state.lastSongId
+      const song = status.active && !isNarrationItem(status) ? status : null
 
       return {
         ...state,
@@ -68,8 +71,9 @@ function reducer(state: ObserverState, action: Action): ObserverState {
         loading: false,
         error: null,
         setupProgress: mergeProgress(state.setupProgress, incoming.setting_up_progress),
-        narration,
-        lastSongId,
+        // carried forward so the song that supersedes a narration cannot erase it
+        narration: narrationHeard(status, state.lastSongId) ?? state.narration,
+        lastSongId: song?.track_id ?? state.lastSongId,
       }
     }
     case 'error':

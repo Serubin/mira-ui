@@ -25,8 +25,6 @@ const CONFETTI = [
 ]
 
 function SaveButtonImpl({ saved, onToggle, disabled = false }: Props) {
-  // nothing to save while a narration owns the screen, and its uri is not a saveable track
-  const filled = saved && !disabled
   const [animating, setAnimating] = useState(false)
   const [burst, setBurst] = useState(0)
   const timerRef = useRef(0)
@@ -41,10 +39,21 @@ function SaveButtonImpl({ saved, onToggle, disabled = false }: Props) {
     onToggle?.()
   }, [onToggle, saved])
 
+  // nothing to save while a narration owns the screen, and its uri is not a saveable track
+  const filled = saved && !disabled
+  const className = [
+    styles.save,
+    filled && styles.saved,
+    animating && styles.animating,
+    disabled && styles.disabled,
+  ]
+    .filter(Boolean)
+    .join(' ')
+
   return (
     <button
       type="button"
-      className={`${styles.save} ${filled ? styles.saved : ''} ${animating ? styles.animating : ''} ${disabled ? styles.disabled : ''}`}
+      className={className}
       aria-label={filled ? 'Remove from Liked Songs' : 'Add to Liked Songs'}
       aria-pressed={filled}
       aria-disabled={disabled}
