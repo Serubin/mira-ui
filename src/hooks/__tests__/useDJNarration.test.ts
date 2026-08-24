@@ -6,6 +6,7 @@ import {
   isNarrationUri,
   presentTrack,
   seenNarrationFrom,
+  songNarration,
   useDJNarration,
   type SeenNarration,
 } from '../useDJNarration'
@@ -126,6 +127,16 @@ describe('seenNarrationFrom', () => {
   it('caps an absurd duration', () => {
     expect(seenNarrationFrom(djNarration({ duration: 60 * 60 * 1000, position: 0 })).ms).toBe(15000)
   })
+
+  it('ignores an outro duration too short to be speech', () => {
+    // measured: outros report 1.2-2.9s while the speech runs ~4.5s, so the value is unusable
+    expect(seenNarrationFrom(djOutro({ position: 8 })).ms).toBe(5000)
+  })
+
+  it('trusts a duration on the plausible side of the threshold', () => {
+    expect(seenNarrationFrom(djNarration({ duration: 3000, position: 200 })).ms).toBe(2800)
+    expect(seenNarrationFrom(djNarration({ duration: 2999, position: 200 })).ms).toBe(5000)
+  })
 })
 
 describe('useDJNarration', () => {
@@ -234,6 +245,60 @@ describe('useDJNarration', () => {
 
     rerender([djSkipped(), seen])
     expect(result.current.narrating).toBe(false)
+  })
+
+  it('narrates for a song whose line arrives with no media item', () => {
+    // the invisible class: "hold me close" etc. carried the line inline and never emitted an item
+    const { result } = setup([songWithLine(), null])
+    expect(result.current.narrating).toBe(true)
+    expect(result.current.title).toBe('Up next')
+    expect(result.current.artist).toBe('DJ X')
+  })
+
+  it('stops narrating once the song plays past the estimated line', () => {
+    const { result, rerender } = setup([songWithLine(), null])
+    expect(result.current.narrating).toBe(true)
+
+    rerender([songWithLine({ position: 6000 }), null])
+    expect(result.current.narrating).toBe(false)
+  })
+
+  it('never narrates for a DJ song carrying no line, at any position', () => {
+    const { result, rerender } = setup([djSong({ position: 0 }), null])
+    expect(result.current.narrating).toBe(false)
+
+    rerender([djSong({ position: 1000 }), null])
+    expect(result.current.narrating).toBe(false)
+  })
+
+  it('does not narrate while paused inside the line', () => {
+    // pausing stops the audio, so the DJ is not talking
+    const { result, rerender } = setup([songWithLine({ position: 1200 }), null])
+    expect(result.current.narrating).toBe(true)
+
+    rerender([songWithLine({ position: 1200, is_paused: true }), null])
+    expect(result.current.narrating).toBe(false)
+  })
+
+  it('does not open a song window after the covering item has finished', () => {
+    // the Stable Song regression: once the item's hold expires the card must go, not restart
+    // on the song's own line, which left it up ~32s
+    const seen = seenNarrationFrom(djNarration({ track_id: 'hold1' }))
+    const { result, rerender } = setup([songWithLine({ position: 500 }), seen])
+    expect(result.current.narrating).toBe(true)
+
+    // past the item's hold, but still inside the song's estimated line
+    vi.advanceTimersByTime(5300)
+    rerender([songWithLine({ position: 1000 }), seen])
+    expect(result.current.narrating).toBe(false)
+  })
+
+  it('still opens a song window when the last item belonged to a different song', () => {
+    // the Up in Flames case: the previous item introduced the track before this one
+    const seen = seenNarrationFrom(djNarration({ track_id: 'someoneelse' }))
+    const { result } = setup([songWithLine(), seen])
+    expect(result.current.narrating).toBe(true)
+    expect(result.current.title).toBe('Up next')
   })
 
   it('does not replay a spent narration when the DJ set is re-entered', () => {
@@ -345,6 +410,81 @@ describe('presentTrack', () => {
       art: '',
       djFallback: true,
     })
+  })
+})
+
+// shapes from the captured metadata: a DJ line carried on the song, with no media item
+function songWithLine(over: Partial<ObserverStatusActive> = {}): ObserverStatusActive {
+  return djSong({
+    track_uri: 'spotify:track:hold1',
+    track_id: 'hold1',
+    track_name: 'hold me close',
+    track_artist: 'This New Light',
+    position: 0,
+    raw_metadata: {
+      agentic_product_type: 'dj',
+      'automix.talk_mode': 'human_cuepoints_or_full_track',
+      // 14 words -> ~5.4s, and the jump variant is 13 -> ~5.0s
+      'narration.intro.ssml':
+        '<speak xml:lang="en-US">Next up, consider this a musical camping trip. <entity type="artist" uri="x">This New Light</entity> brought the marshmallows.</speak>',
+      'narration.jump.ssml':
+        '<speak xml:lang="en-US">OK moving on, I am bringing the campfire to us. <entity type="artist" uri="x">This New Light</entity> on first.</speak>',
+      'narration.intro.title': 'Up next',
+      'narration.intro.artist': 'DJ X',
+    },
+    ...over,
+  })
+}
+
+describe('songNarration', () => {
+  it('reads a line carried on the song', () => {
+    const line = songNarration(songWithLine())
+    expect(line).not.toBeNull()
+    expect(line?.title).toBe('Up next')
+    expect(line?.artist).toBe('DJ X')
+  })
+
+  it('is null for a song carrying no line', () => {
+    // the Ocean Front Apt. case: a DJ-set song the DJ does not talk over
+    expect(songNarration(djSong())).toBeNull()
+    expect(songNarration(null)).toBeNull()
+  })
+
+  it('sizes the window from the intro script, less the lead-in', () => {
+    // 14 words at the calibrated 3.55 w/s, minus the 2s already spoken over the previous track
+    expect(songNarration(songWithLine())?.ms).toBeCloseTo((14 / 3.55) * 1000 - 2000, 0)
+  })
+
+  it('falls back to the jump script when there is no intro', () => {
+    const jumpOnly = songNarration(
+      songWithLine({
+        raw_metadata: {
+          agentic_product_type: 'dj',
+          'narration.jump.ssml': '<speak>One two three four five six seven eight nine ten.</speak>',
+        },
+      }),
+    )
+    // 10 words is 2.8s, and the lead-in takes it under the floor
+    expect(jumpOnly?.ms).toBe(1500)
+  })
+
+  it('floors a very short line and caps a long one', () => {
+    const tiny = songNarration(
+      songWithLine({
+        raw_metadata: { agentic_product_type: 'dj', 'narration.intro.ssml': '<speak>Hi.</speak>' },
+      }),
+    )
+    expect(tiny?.ms).toBe(1500)
+
+    const huge = songNarration(
+      songWithLine({
+        raw_metadata: {
+          agentic_product_type: 'dj',
+          'narration.intro.ssml': `<speak>${'word '.repeat(500)}</speak>`,
+        },
+      }),
+    )
+    expect(huge?.ms).toBe(15000)
   })
 })
 

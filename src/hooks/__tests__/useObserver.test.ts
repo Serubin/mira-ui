@@ -398,7 +398,8 @@ describe('useObserver', () => {
     expect(result.current.narration).toMatchObject({
       uri: 'spotify:media:outgoing1',
       trackId: 'outgoing1',
-      ms: 2374,
+      // an outro's 2377ms is too short to be speech, so the default stands in for it
+      ms: 5000,
     })
   })
 
