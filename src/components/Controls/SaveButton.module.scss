@@ -163,3 +163,7 @@
     animation: none;
   }
 }
+
+.disabled {
+  @include disabled-control;
+}

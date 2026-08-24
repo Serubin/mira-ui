@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { fetchLyrics } from '@/api/client'
+import { isNarrationUri } from '@/hooks/useDJNarration'
 import { primeLyricsCache } from '@/hooks/useLyrics'
 import type { ObserverStatus, QueueTrack } from '@/api/types'
 
@@ -32,8 +33,8 @@ function prefetchLyrics(t: QueueTrack) {
   // skip podcast episodes
   if (t.uri?.startsWith('spotify:episode:')) return
   // skip DJ narration: it shares the song's track id, so its lookup caches "no lyrics"
-  // against the song. Keyed on the scheme, since the title is localised.
-  if (t.uri?.startsWith('spotify:media:')) return
+  // against the song
+  if (isNarrationUri(t.uri)) return
   const id = t.track_id
   void fetchLyrics(id, { track: t.name, artist: t.artist, album: t.album })
     .then((lyrics) => {
