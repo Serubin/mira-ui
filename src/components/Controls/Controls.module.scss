@@ -46,14 +46,8 @@
   }
 }
 
-// if the daemon tells us we cant do an action we just dim that button and dont show a transformation
 .btnDisabled {
-  opacity: 0.35;
-  cursor: default;
-
-  &:active {
-    transform: none;
-  }
+  @include disabled-control;
 }
 
 .btnXs {
