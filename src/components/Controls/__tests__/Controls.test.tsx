@@ -166,6 +166,33 @@ describe('Controls save button during narration', () => {
     expect(props.onToggleSaved).not.toHaveBeenCalled()
   })
 
+  it('disables the DJ button and ignores presses while the DJ is talking', () => {
+    // jumping mid-line cuts the speech, leaving the card up with nothing being said
+    const props = { ...defaultProps(), onDJSignal: vi.fn() }
+    render(
+      <NarrationContext.Provider value={narrating}>
+        <Controls {...props} isDJ={true} />
+      </NarrationContext.Provider>,
+    )
+
+    const dj = screen.getByRole('button', { name: 'Switch DJ set' })
+    expect(dj).toHaveAttribute('aria-disabled', 'true')
+
+    fireEvent.click(dj)
+    expect(props.onDJSignal).not.toHaveBeenCalled()
+  })
+
+  it('leaves the DJ button pressable once the DJ stops talking', () => {
+    const props = { ...defaultProps(), onDJSignal: vi.fn() }
+    render(<Controls {...props} isDJ={true} />)
+
+    const dj = screen.getByRole('button', { name: 'Switch DJ set' })
+    expect(dj).toHaveAttribute('aria-disabled', 'false')
+
+    fireEvent.click(dj)
+    expect(props.onDJSignal).toHaveBeenCalledTimes(1)
+  })
+
   it('does not show a saved heart while the DJ is on screen', () => {
     // the narration uri is not a saveable track, so a filled heart would be describing nothing
     render(

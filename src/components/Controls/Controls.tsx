@@ -88,12 +88,15 @@ function ControlsImpl({
             <SeekBack15Icon size={32} />
           </button>
         ) : isDJ ? (
-          // momentary action, not a toggle
+          // momentary action, not a toggle. Disabled while the DJ talks: jumping cuts the
+          // speech short, which leaves the card up with nothing being said
           <button
             type="button"
-            className={`${styles.btn} ${styles.btnXs}`}
+            className={`${styles.btn} ${styles.btnXs} ${narrating ? styles.btnDisabled : ''}`}
             aria-label="Switch DJ set"
-            onClick={onDJSignal}
+            aria-disabled={narrating}
+            disabled={narrating}
+            onClick={narrating ? undefined : onDJSignal}
           >
             <DJIcon size={32} />
           </button>
