@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ObserverStatusActive } from '@/api/types'
-import { getPreset, labelFromUri, presetIndexFromCode, setPreset } from '@/presets'
+import {
+  getPreset,
+  isDJPreset,
+  presetForContext,
+  presetIndexFromCode,
+  refreshPresetLabels,
+  setPreset,
+} from '@/presets'
 import { getSettings } from '@/settings'
 import type { NotifyFn } from '@/notify/notifyContext'
 
@@ -37,6 +44,12 @@ export interface UseHardwareButtonsParams {
   setVolume: (volume: number, relative?: boolean) => Promise<void> | void
   // play a context (used by preset buttons)
   playContext: (uri: string) => Promise<void> | void
+  // a DJ set is playing
+  inDJSet: boolean
+  // the DJ is mid-sentence
+  djNarrating: boolean
+  // ask the DJ for a different set
+  onDJSignal: () => void
   // back button (esc), go back one step, or no-op
   onBack: () => void
   // power button (KeyM): short press opens the power menu
@@ -78,6 +91,9 @@ export function useHardwareButtons({
   onPlayPause,
   setVolume,
   playContext,
+  inDJSet,
+  djNarrating,
+  onDJSignal,
   onBack,
   onTogglePowerMenu,
   onScreensaver,
@@ -106,6 +122,14 @@ export function useHardwareButtons({
   volumeDisabledRef.current = volumeDisabled
   const statusRef = useRef(status)
   statusRef.current = status
+  const djRef = useRef({ inSet: inDJSet, narrating: djNarrating, signal: onDJSignal })
+  djRef.current = { inSet: inDJSet, narrating: djNarrating, signal: onDJSignal }
+
+  const contextUri = status?.context_uri
+  const contextName = status?.context_name
+  useEffect(() => {
+    if (contextUri && contextName) refreshPresetLabels(contextUri, contextName)
+  }, [contextUri, contextName])
 
   // sync volume from the device when not mid turn
   useEffect(() => {
@@ -230,9 +254,9 @@ export function useHardwareButtons({
     const saveCurrentToPreset = (idx: number) => {
       const cur = statusRef.current
       if (cur && cur.context_uri) {
-        const label = cur.context_name || labelFromUri(cur.context_uri)
-        setPreset(idx, { contextUri: cur.context_uri, label })
-        notify(`Saved "${label}" to preset ${idx}`, { variant: 'success' })
+        const config = presetForContext(cur.context_uri, cur.context_name, djRef.current.inSet)
+        setPreset(idx, config)
+        notify(`Saved "${config.label}" to preset ${idx}`, { variant: 'success' })
       } else {
         notify('Nothing playing to save', { variant: 'warning' })
       }
@@ -278,8 +302,18 @@ export function useHardwareButtons({
         saved[e.code] = false
         return // hold already saved dont also play
       }
-      // short press will play the assigned context
       const preset = getPreset(idx)
+      const dj = djRef.current
+      if (isDJPreset(preset)) {
+        if (!dj.inSet) {
+          notify('Start DJ playback on your device', { variant: 'info' })
+        } else if (!dj.narrating) {
+          dj.signal()
+          notify('Switching DJ set')
+        }
+        return
+      }
+      // short press will play the assigned context
       if (preset?.contextUri) {
         // only claim success once the play actually lands
         void Promise.resolve(playContext(preset.contextUri))

@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 
 import type { ObserverStatusActive } from '@/api/types'
 
-const DJ_PLAYLIST_URI = 'spotify:playlist:37i9dQZF1EYkqdzj48dyYq'
+export const DJ_PLAYLIST_URI = 'spotify:playlist:37i9dQZF1EYkqdzj48dyYq'
 
 // narration length when the item does not report a usable one, and a ceiling on any it does
 const DEFAULT_NARRATION_MS = 5_000

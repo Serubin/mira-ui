@@ -1,10 +1,11 @@
 // Physical preset buttons (Digit1-4 on the Car Thing).
 //
-// For now this is mostly scaffolding: preset 1 plays Liked Songs, presets 2-4
-// are unassigned. Will be further developed once we have the library
-// Designed so a long-press would save the currently-playing context to a
-// slot
+// Short press plays the slot's context, long press saves the context of whatever is playing
+// Preset 1 defaults to Liked Songs, 2-4 start empty.
+// Only DJ responds differently. We can't start a DJ session directly from the button.
+// DJ clicks act as the DJ "retry"
 
+import { DJ_PLAYLIST_URI } from '@/hooks/useDJNarration'
 import { getSettings, updateSettings } from '@/settings'
 
 export interface PresetConfig {
@@ -29,8 +30,38 @@ export function setPreset(index: number, config: PresetConfig): void {
   updateSettings({ presets: { ...getSettings().presets, [index]: config } })
 }
 
+function isDJUri(uri: string | null | undefined): boolean {
+  return uri === DJ_PLAYLIST_URI
+}
+
+export function isDJPreset(preset: PresetConfig | null): boolean {
+  return isDJUri(preset?.contextUri)
+}
+
+export function presetForContext(
+  contextUri: string,
+  contextName: string,
+  inDJSet: boolean,
+): PresetConfig {
+  if (inDJSet || isDJUri(contextUri)) return { contextUri: DJ_PLAYLIST_URI, label: 'DJ' }
+  return { contextUri, label: contextName || labelFromUri(contextUri) }
+}
+
+export function refreshPresetLabels(contextUri: string, contextName: string): void {
+  if (!contextUri || !contextName || isDJUri(contextUri)) return
+  const presets = getSettings().presets
+  let next: Record<number, PresetConfig> | null = null
+  for (const [slot, preset] of Object.entries(presets)) {
+    if (preset.contextUri !== contextUri || preset.label === contextName) continue
+    next = next ?? { ...presets }
+    next[Number(slot)] = { ...preset, label: contextName }
+  }
+  if (next) updateSettings({ presets: next })
+}
+
 // try to get the human readable label or fall back to a generic one
-export function labelFromUri(uri: string): string {
+function labelFromUri(uri: string): string {
+  if (uri === DJ_PLAYLIST_URI) return 'DJ'
   if (uri.startsWith('spotify:collection')) return 'Liked Songs'
   if (uri.includes(':playlist:')) return 'Playlist'
   if (uri.includes(':album:')) return 'Album'
