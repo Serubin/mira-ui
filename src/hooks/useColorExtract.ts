@@ -20,14 +20,22 @@ const WARM_HI = 4
 const WARM_PENALTY = 0.5
 
 const CACHE_MAX = 500
-const cache = new Map<string, RGB>()
+const cache = new Map<string, Sample>()
 
-function remember(url: string, rgb: RGB) {
+// the accent colour plus how bright the artwork is overall
+interface Sample {
+  rgb: RGB
+  luminance: number
+}
+
+const DEFAULT_SAMPLE: Sample = { rgb: DEFAULT, luminance: 0 }
+
+function remember(url: string, sample: Sample) {
   if (!cache.has(url) && cache.size >= CACHE_MAX) {
     const oldest = cache.keys().next().value
     if (oldest !== undefined) cache.delete(oldest)
   }
-  cache.set(url, rgb)
+  cache.set(url, sample)
 }
 
 let sharedCtx: CanvasRenderingContext2D | null = null
@@ -198,25 +206,41 @@ function vivid(accent: RGB, family: number, buckets: number, total: number): RGB
   return hslToRgb(h, Math.max(s, saturation), l)
 }
 
-function extract(img: HTMLImageElement): RGB | null {
+function meanLuminance(data: ArrayLike<number>): number {
+  let sum = 0
+  let n = 0
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] < 128) continue
+    sum += 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]
+    n++
+  }
+  return n === 0 ? 0 : sum / n / 255
+}
+
+function extract(img: HTMLImageElement): Sample | null {
   const ctx = ensureCanvas()
   if (!ctx) return null
   try {
     ctx.clearRect(0, 0, SAMPLE, SAMPLE)
     ctx.drawImage(img, 0, 0, SAMPLE, SAMPLE)
-    return extractAccent(ctx.getImageData(0, 0, SAMPLE, SAMPLE).data)
+    const { data } = ctx.getImageData(0, 0, SAMPLE, SAMPLE)
+    const rgb = extractAccent(data)
+    if (!rgb) return null
+    return { rgb, luminance: meanLuminance(data) }
   } catch {
     return null
   }
 }
 
-export function useColorExtract(url: string | undefined): RGB {
-  const [color, setColor] = useState<RGB>(() => (url ? (cache.get(url) ?? DEFAULT) : DEFAULT))
+function useSample(url: string | undefined): Sample {
+  const [sample, setSample] = useState<Sample>(() =>
+    url ? (cache.get(url) ?? DEFAULT_SAMPLE) : DEFAULT_SAMPLE,
+  )
   const lastUrlRef = useRef<string | undefined>(undefined)
 
   useEffect(() => {
     if (!url) {
-      setColor(DEFAULT)
+      setSample(DEFAULT_SAMPLE)
       lastUrlRef.current = undefined
       return
     }
@@ -225,7 +249,7 @@ export function useColorExtract(url: string | undefined): RGB {
 
     const cached = cache.get(url)
     if (cached) {
-      setColor(cached)
+      setSample(cached)
       return
     }
 
@@ -235,20 +259,25 @@ export function useColorExtract(url: string | undefined): RGB {
     img.decoding = 'async'
     img.referrerPolicy = 'no-referrer'
 
-    const apply = (rgb: RGB) =>
-      setColor((prev) =>
-        prev[0] === rgb[0] && prev[1] === rgb[1] && prev[2] === rgb[2] ? prev : rgb,
+    const apply = (next: Sample) =>
+      setSample((prev) =>
+        prev.rgb[0] === next.rgb[0] &&
+        prev.rgb[1] === next.rgb[1] &&
+        prev.rgb[2] === next.rgb[2] &&
+        prev.luminance === next.luminance
+          ? prev
+          : next,
       )
 
     img.onload = () => {
       if (cancelled) return
-      const rgb = extract(img) ?? DEFAULT
-      remember(url, rgb)
-      apply(rgb)
+      const next = extract(img) ?? DEFAULT_SAMPLE
+      remember(url, next)
+      apply(next)
     }
     img.onerror = () => {
       if (cancelled) return
-      apply(DEFAULT)
+      apply(DEFAULT_SAMPLE)
     }
     img.src = url
 
@@ -260,7 +289,16 @@ export function useColorExtract(url: string | undefined): RGB {
     }
   }, [url])
 
-  return color
+  return sample
+}
+
+export function useColorExtract(url: string | undefined): RGB {
+  return useSample(url).rgb
+}
+
+// mean artwork luminance
+export function useArtLuminance(url: string | undefined): number {
+  return useSample(url).luminance
 }
 
 function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
