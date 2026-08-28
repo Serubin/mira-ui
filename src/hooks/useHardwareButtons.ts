@@ -44,9 +44,10 @@ export interface UseHardwareButtonsParams {
   setVolume: (volume: number, relative?: boolean) => Promise<void> | void
   // play a context (used by preset buttons)
   playContext: (uri: string) => Promise<void> | void
-  // a DJ set is playing
+  // a DJ set is playing: a long-press saves the slot as DJ, and a short press on a DJ slot
+  // becomes a retry rather than a fresh start
   inDJSet: boolean
-  // the DJ is mid-sentence
+  // the DJ is mid-sentence, so the retry is ignored
   djNarrating: boolean
   // ask the DJ for a different set
   onDJSignal: () => void
@@ -304,16 +305,17 @@ export function useHardwareButtons({
       }
       const preset = getPreset(idx)
       const dj = djRef.current
-      if (isDJPreset(preset)) {
-        if (!dj.inSet) {
-          notify('Start DJ playback on your device', { variant: 'info' })
-        } else if (!dj.narrating) {
+      // a DJ slot is a retry once a set is playing: `jump` is what asks for a different set,
+      // and replaying the context appears to resume the current one instead. Ignored
+      // mid-narration, matching the on-screen DJ button
+      if (isDJPreset(preset) && dj.inSet) {
+        if (!dj.narrating) {
           dj.signal()
           notify('Switching DJ set')
         }
         return
       }
-      // short press will play the assigned context
+      // short press will play the assigned context, cold-starting DJ like any other
       if (preset?.contextUri) {
         // only claim success once the play actually lands
         void Promise.resolve(playContext(preset.contextUri))
