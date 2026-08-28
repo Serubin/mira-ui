@@ -668,8 +668,6 @@ export default function App() {
     setVolume,
     playContext,
     inDJSet: isDJ,
-    djNarrating: narration.narrating,
-    onDJSignal: controls.onDJSignal,
     onBack: goBack,
     onTogglePowerMenu: () => {
       if (screensaverOpen) {

@@ -2,8 +2,8 @@
 //
 // Short press plays the slot's context, long press saves the context of whatever is playing
 // Preset 1 defaults to Liked Songs, 2-4 start empty.
-// Only DJ responds differently. We can't start a DJ session directly from the button.
-// DJ clicks act as the DJ "retry"
+// DJ is stored as its playlist uri like any other context. The daemon recognises that uri and
+// sends the lexicon session envelope for it, so a short press starts a DJ set from cold.
 
 import { DJ_PLAYLIST_URI } from '@/hooks/useDJNarration'
 import { getSettings, updateSettings } from '@/settings'
@@ -32,10 +32,6 @@ export function setPreset(index: number, config: PresetConfig): void {
 
 function isDJUri(uri: string | null | undefined): boolean {
   return uri === DJ_PLAYLIST_URI
-}
-
-export function isDJPreset(preset: PresetConfig | null): boolean {
-  return isDJUri(preset?.contextUri)
 }
 
 export function presetForContext(
