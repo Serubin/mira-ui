@@ -1,4 +1,6 @@
 # mira-ui
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FSerubin%2Fmira-ui.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2FSerubin%2Fmira-ui?ref=badge_shield)
+
 
 <img width="3824" height="912" alt="mira-ui-overview" src="https://github.com/user-attachments/assets/afe75e33-2c2f-496d-b29e-6c84b292d14f" />
 
@@ -43,3 +45,6 @@ The Car Thing's Chromium is Chrome 69 (2018), so the production bundle uses `@vi
 Apache 2.0, see [LICENSE](LICENSE).
 
 > "Spotify" and "Car Thing" are trademarks of Spotify AB. This software is not affiliated with or endorsed by Spotify AB.
+
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FSerubin%2Fmira-ui.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2FSerubin%2Fmira-ui?ref=badge_large)
