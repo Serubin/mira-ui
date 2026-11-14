@@ -4,6 +4,8 @@
   height: 100%;
   padding: $s-4 0 $s-6;
   overflow: hidden;
+  // horizontal drags are the carousel's; vertical ones still scroll the page
+  touch-action: pan-y;
 }
 
 // the items' offsetParent, so their offsets are in the track's own layout px
