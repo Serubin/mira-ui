@@ -1,4 +1,9 @@
 import { memo, useLayoutEffect, useRef, useState } from 'react'
+import { MenuControl, MenuLink, MenuSheet } from '@/components/Menu'
+import { Layer } from '@/input/router'
+import { useBackCapture } from '@/input/useBackCapture'
+import { useKnobNav } from '@/input/useKnobNav'
+import { useKnobScope } from '@/input/useKnobScope'
 import {
   BRIGHTNESS_MAX,
   BRIGHTNESS_MIN,
@@ -11,10 +16,10 @@ import {
   VOLUME_STEP_MAX,
   VOLUME_STEP_MIN,
 } from '@/settings'
+import { accentVar, useTheme } from '@/theme/theme'
 import { NotchedSlider, SettingRow } from '@/ui/controls'
 import { Icon } from '@/ui/icons'
-import { ListRow } from '@/ui/List'
-import styles from './SettingsSheet.module.scss'
+import { ensureVisible } from '@/ui/List/listMath'
 
 interface Props {
   open: boolean
@@ -28,59 +33,162 @@ const OFFSET_MIN = -500
 const OFFSET_MAX = 500
 const OFFSET_STEP = 50
 
+type Slider = 'scale' | 'offset' | 'volume' | 'brightness'
+type Item = Slider | 'autoBrightness' | 'bluetooth'
+
+const ROWS: readonly Item[] = ['scale', 'offset', 'volume', 'autoBrightness', 'brightness']
+const WITH_BLUETOOTH: readonly Item[] = [...ROWS, 'bluetooth']
+
 function fmtOffset(ms: number): string {
   if (ms === 0) return '0 ms'
   return `${ms > 0 ? '+' : ''}${ms} ms`
 }
 
+function clamp(n: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, n))
+}
+
 function SettingsSheetImpl({ open, onClose, phoneVolume = false, onOpenBluetooth }: Props) {
+  const theme = useTheme()
   const { lyricOffsetMs, volumeStepPct, autoBrightness, brightness, uiScalePct } = useSettings()
 
   // applying the scale mid-drag moves this very panel under the finger, which has no
   // fixed point near a notch boundary and makes the whole ui flicker between two sizes.
   // so track the drag locally and only commit on release
   const [scalePreview, setScalePreview] = useState<number | null>(null)
-  // drop an uncommitted drag if the sheet is dismissed mid-gesture
+  const shownScale = scalePreview ?? uiScalePct
+
+  // the slider the knob is turning, until a press or Back hands the knob back to the rows
+  const [adjusting, setAdjusting] = useState<Slider | null>(null)
+
+  // shared by each NotchedSlider and the knob's adjust mode
+  const sliders: Record<
+    Slider,
+    { value: number; min: number; max: number; step: number; onChange: (v: number) => void }
+  > = {
+    scale: {
+      value: shownScale,
+      min: UI_SCALE_MIN,
+      max: UI_SCALE_MAX,
+      step: UI_SCALE_STEP,
+      onChange: setScalePreview,
+    },
+    offset: {
+      value: lyricOffsetMs,
+      min: OFFSET_MIN,
+      max: OFFSET_MAX,
+      step: OFFSET_STEP,
+      onChange: (v) => updateSettings({ lyricOffsetMs: v }),
+    },
+    volume: {
+      value: volumeStepPct,
+      min: VOLUME_STEP_MIN,
+      max: VOLUME_STEP_MAX,
+      step: 1,
+      onChange: (v) => updateSettings({ volumeStepPct: v }),
+    },
+    brightness: {
+      value: brightness,
+      min: BRIGHTNESS_MIN,
+      max: BRIGHTNESS_MAX,
+      step: 1,
+      onChange: (v) => updateSettings({ brightness: v }),
+    },
+  }
+
+  const stopAdjusting = () => {
+    if (adjusting === 'scale' && scalePreview !== null) {
+      updateSettings({ uiScalePct: scalePreview })
+      setScalePreview(null)
+    }
+    setAdjusting(null)
+  }
+
+  const items = onOpenBluetooth ? WITH_BLUETOOTH : ROWS
+  const disabled = (item: Item) =>
+    (item === 'volume' && phoneVolume) || (item === 'brightness' && autoBrightness)
+  const nav = useKnobNav({
+    keys: items,
+    onSelect: (item) => {
+      if (item === 'autoBrightness') updateSettings({ autoBrightness: !autoBrightness })
+      else if (item === 'bluetooth') onOpenBluetooth?.()
+      else setAdjusting(item)
+    },
+    disabled,
+    enabled: open && adjusting === null,
+    layer: Layer.modal,
+  })
+
+  useKnobScope({
+    layer: Layer.modal,
+    enabled: open && adjusting !== null,
+    onStep: (dir) => {
+      if (!adjusting) return
+      const s = sliders[adjusting]
+      const next = clamp(s.value + dir * s.step, s.min, s.max)
+      if (next !== s.value) s.onChange(next)
+    },
+    onSelect: stopAdjusting,
+  })
+
+  useBackCapture(open && adjusting !== null, stopAdjusting)
+
+  // every open starts at the top. a dismissal drops an uncommitted size, as a cancelled drag does
   const [wasOpen, setWasOpen] = useState(open)
   if (wasOpen !== open) {
     setWasOpen(open)
     if (scalePreview !== null) setScalePreview(null)
+    if (adjusting !== null) setAdjusting(null)
+    if (open) nav.setFocus(items[0])
   }
-  const shownScale = scalePreview ?? uiScalePct
 
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const [more, setMore] = useState({ above: false, below: false })
-  const checkMore = () => {
-    const el = scrollRef.current
-    if (!el) return
-    const above = el.scrollTop > 4
-    const below = el.scrollHeight - el.scrollTop - el.clientHeight > 4
-    setMore((m) => (m.above === above && m.below === below ? m : { above, below }))
-  }
+  // the slider would otherwise keep turning after it went disabled under the knob
+  if (adjusting !== null && disabled(adjusting)) setAdjusting(null)
+
+  const body = useRef<HTMLDivElement>(null)
+  // the auto switch sits in the brightness row
+  const focusRow = nav.focusKey === 'autoBrightness' ? 'brightness' : nav.focusKey
   useLayoutEffect(() => {
-    if (!open) return
-    checkMore()
-    const id = requestAnimationFrame(checkMore)
-    return () => cancelAnimationFrame(id)
-  }, [open, uiScalePct, onOpenBluetooth])
+    const el = body.current
+    const target = focusRow && el?.querySelector<HTMLElement>(`[data-row="${focusRow}"]`)
+    if (!open || !el || !target) return
+    // offsets and scrollTop share the unzoomed layout px of #root's zoom
+    el.scrollTop = ensureVisible(
+      el.scrollTop,
+      el.clientHeight,
+      target.offsetTop,
+      target.offsetHeight,
+      16,
+    )
+  }, [open, focusRow, uiScalePct])
+
+  // a touch moves focus there and abandons any knob adjustment elsewhere. committing a
+  // previewed size now would rescale the panel under the finger
+  const touch = (item: Item) => () => {
+    if (adjusting !== null && adjusting !== item) {
+      setScalePreview(null)
+      setAdjusting(null)
+    }
+    nav.setFocus(item)
+  }
+  const control = (item: Slider) => ({
+    focused: nav.focusKey === item,
+    active: adjusting === item,
+    onPointerDownCapture: touch(item),
+  })
 
   return (
-    <div
-      className={`${styles.root} ${open ? styles.open : ''}`}
-      aria-hidden={!open}
-      onClick={onClose}
+    <MenuSheet
+      open={open}
+      onClose={onClose}
+      title="Settings"
+      style={accentVar(theme)}
+      bodyRef={body}
     >
-      <div
-        className={styles.panel}
-        role="dialog"
-        aria-modal="true"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div ref={scrollRef} className={styles.scroll} onScroll={checkMore}>
-          <div className={styles.title}>Settings</div>
-
-          {/* first on purpose: at the largest display size the panel scrolls, and this is
-            the one control that has to stay reachable to get back down */}
+      {/* first on purpose: at the largest display size the panel scrolls, and this is
+        the one control that has to stay reachable to get back down */}
+      <div data-row="scale">
+        <MenuControl {...control('scale')}>
           <SettingRow
             icon={<Icon name="displaySize" size={20} />}
             label="Display size"
@@ -88,11 +196,7 @@ function SettingsSheetImpl({ open, onClose, phoneVolume = false, onOpenBluetooth
           >
             <NotchedSlider
               ariaLabel="Display size"
-              value={shownScale}
-              min={UI_SCALE_MIN}
-              max={UI_SCALE_MAX}
-              step={UI_SCALE_STEP}
-              onChange={setScalePreview}
+              {...sliders.scale}
               onCommit={(v) => {
                 setScalePreview(null)
                 // the sheet was dismissed mid-gesture, so drop the drag instead of
@@ -105,7 +209,11 @@ function SettingsSheetImpl({ open, onClose, phoneVolume = false, onOpenBluetooth
               defaultValue={UI_SCALE_DEFAULT}
             />
           </SettingRow>
+        </MenuControl>
+      </div>
 
+      <div data-row="offset">
+        <MenuControl {...control('offset')}>
           <SettingRow
             icon={<Icon name="lyrics" size={20} />}
             label="Lyric sync"
@@ -113,16 +221,16 @@ function SettingsSheetImpl({ open, onClose, phoneVolume = false, onOpenBluetooth
           >
             <NotchedSlider
               ariaLabel="Lyric sync offset"
-              value={lyricOffsetMs}
-              min={OFFSET_MIN}
-              max={OFFSET_MAX}
-              step={OFFSET_STEP}
-              onChange={(v) => updateSettings({ lyricOffsetMs: v })}
+              {...sliders.offset}
               format={fmtOffset}
               defaultValue={0}
             />
           </SettingRow>
+        </MenuControl>
+      </div>
 
+      <div data-row="volume">
+        <MenuControl {...control('volume')}>
           <SettingRow
             icon={<Icon name="speaker" size={20} />}
             label="Volume per turn"
@@ -130,17 +238,23 @@ function SettingsSheetImpl({ open, onClose, phoneVolume = false, onOpenBluetooth
           >
             <NotchedSlider
               ariaLabel="Volume per turn"
-              value={volumeStepPct}
-              min={VOLUME_STEP_MIN}
-              max={VOLUME_STEP_MAX}
-              step={1}
-              onChange={(v) => updateSettings({ volumeStepPct: v })}
+              {...sliders.volume}
               format={(v) => `${v}%`}
               disabled={phoneVolume}
               defaultValue={2}
             />
           </SettingRow>
+        </MenuControl>
+      </div>
 
+      <div data-row="brightness">
+        <MenuControl
+          {...control('brightness')}
+          onPointerDownCapture={(e) => {
+            const onSwitch = (e.target as Element).closest('[role="switch"]')
+            touch(onSwitch ? 'autoBrightness' : 'brightness')()
+          }}
+        >
           <SettingRow
             icon={<Icon name="sun" size={20} />}
             label="Brightness"
@@ -149,49 +263,26 @@ function SettingsSheetImpl({ open, onClose, phoneVolume = false, onOpenBluetooth
               checked: autoBrightness,
               onChange: (on) => updateSettings({ autoBrightness: on }),
               label: 'Auto brightness',
+              focused: nav.focusKey === 'autoBrightness',
             }}
           >
             <NotchedSlider
               ariaLabel="Brightness"
-              value={brightness}
-              min={BRIGHTNESS_MIN}
-              max={BRIGHTNESS_MAX}
-              step={1}
-              onChange={(v) => updateSettings({ brightness: v })}
+              {...sliders.brightness}
               format={(v) => `${v * 10}%`}
               disabled={autoBrightness}
               defaultValue={5}
             />
           </SettingRow>
-
-          {onOpenBluetooth ? (
-            <ListRow
-              className={styles.navRow}
-              leading={
-                <span className={styles.navChip} aria-hidden>
-                  <Icon name="bluetooth" size={20} />
-                </span>
-              }
-              title={<span className={styles.navLabel}>Bluetooth pairing</span>}
-              value={<Icon name="chevronRight" size={20} />}
-              onSelect={onOpenBluetooth}
-            />
-          ) : null}
-        </div>
-        <div
-          className={`${styles.more} ${styles.moreAbove} ${more.above ? styles.moreShown : ''}`}
-          aria-hidden
-        >
-          <Icon name="chevronRight" size={20} />
-        </div>
-        <div
-          className={`${styles.more} ${styles.moreBelow} ${more.below ? styles.moreShown : ''}`}
-          aria-hidden
-        >
-          <Icon name="chevronRight" size={20} />
-        </div>
+        </MenuControl>
       </div>
-    </div>
+
+      {onOpenBluetooth ? (
+        <div data-row="bluetooth" onPointerDownCapture={touch('bluetooth')}>
+          <MenuLink icon="bluetooth" label="Bluetooth pairing" {...nav.itemProps('bluetooth')} />
+        </div>
+      ) : null}
+    </MenuSheet>
   )
 }
 

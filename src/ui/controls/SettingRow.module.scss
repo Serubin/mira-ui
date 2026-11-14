@@ -26,11 +26,13 @@
   &:active {
     transform: scale(0.92);
   }
+
+  @include focus-ring;
 }
 
 .chipOn {
-  background: rgba(30, 215, 96, 0.16);
-  color: $accent;
+  background: rgba(var(--theme-accent, #{$accent-rgb}), 0.16);
+  color: rgb(var(--theme-accent, #{$accent-rgb}));
 }
 
 .rowMain {

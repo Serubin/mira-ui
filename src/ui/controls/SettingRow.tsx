@@ -6,7 +6,13 @@ export interface SettingRowProps {
   label: string
   value: string
   /** turns the icon chip into an on/off switch, e.g. auto brightness beside its slider */
-  iconSwitch?: { checked: boolean; onChange: (checked: boolean) => void; label: string }
+  iconSwitch?: {
+    checked: boolean
+    onChange: (checked: boolean) => void
+    label: string
+    /** knob focus is on the switch */
+    focused?: boolean
+  }
   /** the control under the label, usually a `NotchedSlider` */
   children: ReactNode
 }
@@ -20,7 +26,7 @@ export function SettingRow({ icon, label, value, iconSwitch, children }: Setting
           role="switch"
           aria-checked={iconSwitch.checked}
           aria-label={iconSwitch.label}
-          className={`${styles.chip} ${styles.chipBtn} ${iconSwitch.checked ? styles.chipOn : ''}`}
+          className={`${styles.chip} ${styles.chipBtn} ${iconSwitch.checked ? styles.chipOn : ''} ${iconSwitch.focused ? styles.focused : ''}`}
           onClick={() => iconSwitch.onChange(!iconSwitch.checked)}
         >
           {icon}
