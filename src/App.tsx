@@ -18,7 +18,12 @@ import { LEAVE_FALLBACK_MS, PageShell } from '@/app/PageShell'
 import { createRouteBack, RouteBackContext } from '@/app/routeBack'
 import { resolveRoute } from '@/app/routes'
 import { usePages, type PageEntry } from '@/app/usePages'
-import { DEV_SCREENS_ENABLED, forcedPageOf, useDevScreen } from '@/dev/devContext'
+import {
+  DEV_SCREENS_ENABLED,
+  forcedPageOf,
+  useDevScreen,
+  type DevForcedScreen,
+} from '@/dev/devContext'
 import { makeMockStatus, MOCK_NARRATION, type MockStatusKind } from '@/dev/mockStatus'
 import { useAuth } from '@/hooks/useAuth'
 import { useConnectDevices } from '@/hooks/useConnectDevices'
@@ -61,6 +66,14 @@ import { initSettings, useSettings } from '@/settings'
 import styles from './App.module.scss'
 
 const IDLE_STATUS: ObserverStatus = { active: false, message: 'no session' }
+// dev screens that draw the page stack with nothing over it
+const SHOWS_HOME = new Set<DevForcedScreen>([
+  'idle',
+  'playing-lyrics',
+  'playing-no-lyrics',
+  'playing-no-art',
+  'dj-narrating',
+])
 
 /**
  * Owns the overlay stack and the input router so every screen below can reach them, and
@@ -116,7 +129,7 @@ function AppContent() {
     narration: seenNarration,
   } = useObserver()
   const notify = useNotify()
-  const { forced, setForced } = useDevScreen()
+  const { forced, setForced, homeRequests = 0 } = useDevScreen()
   const overlays = useOverlayState()
   // `overlays` itself is a new object on every open and close; these three are
   // not, so anything that ends up in a dep array is built from them
@@ -408,6 +421,16 @@ function AppContent() {
     if (!playing) dropPage('player')
     else if (started && depth === 1) pushPage({ id: 'player' }, { silent })
   }, [playing, shellShown, depth, pushPage, dropPage])
+
+  // dev: any other forced screen hides home, so going home swaps it for the player's mock status
+  const seenHomeRequests = useRef(homeRequests)
+  const { reset: resetPages } = pages
+  useEffect(() => {
+    if (homeRequests === seenHomeRequests.current) return
+    seenHomeRequests.current = homeRequests
+    if (forced && !SHOWS_HOME.has(forced)) setForced('playing-lyrics')
+    resetPages()
+  }, [homeRequests, forced, setForced, resetPages])
 
   const navigation = useMemo<Navigation>(
     () => ({ push: pushPage, pop: pages.pop, reset: pages.reset }),

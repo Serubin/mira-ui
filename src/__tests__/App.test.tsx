@@ -330,6 +330,32 @@ describe('App', () => {
       expect(currentPage(container)).toContainElement(homeHeading())
     })
 
+    it('pops to home from the dev menu, dropping a forced page or screen', async () => {
+      quietPlayerApis()
+      const setForced = vi.fn()
+      const ui = (forced: DevForcedScreen, homeRequests: number) => (
+        <DevScreenContext.Provider value={{ forced, setForced, homeRequests }}>
+          <App />
+        </DevScreenContext.Provider>
+      )
+      const { container, rerender } = render(ui('playing-lyrics', 0))
+      await waitFor(() => expect(currentPage(container)).toContainElement(playerView(container)))
+
+      rerender(ui('playing-lyrics', 1))
+      await waitFor(() => expect(currentPage(container)).toContainElement(homeHeading()))
+      expect(setForced).not.toHaveBeenCalled()
+
+      rerender(ui('queue', 1))
+      await screen.findByRole('heading', { name: 'Queue' })
+      rerender(ui('queue', 2))
+      expect(setForced).toHaveBeenCalledWith('playing-lyrics')
+
+      setForced.mockClear()
+      rerender(ui('auth', 2))
+      rerender(ui('auth', 3))
+      expect(setForced).toHaveBeenCalledWith('playing-lyrics')
+    })
+
     it('shows home for a forced idle screen, whatever is really playing', async () => {
       server.use(http.get('*/observer/status', () => HttpResponse.json(activeStatus)))
       const { container } = renderForced('idle')

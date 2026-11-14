@@ -49,6 +49,9 @@ export function forcedPageOf(forced: DevForcedScreen): PageRoute | null {
 export interface DevScreenCtx {
   forced: DevForcedScreen
   setForced: (s: DevForcedScreen) => void
+  /** bumped by the dev menu's Home button; App pops to home on each change */
+  homeRequests?: number
+  goHome?: () => void
 }
 
 export const DevScreenContext = createContext<DevScreenCtx>({

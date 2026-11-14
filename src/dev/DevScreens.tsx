@@ -31,6 +31,7 @@ function writeStored(v: DevForcedScreen) {
 
 export function DevScreenProvider({ children }: { children: ReactNode }) {
   const [forced, setForcedRaw] = useState<DevForcedScreen>(() => readStored())
+  const [homeRequests, setHomeRequests] = useState(0)
 
   // Persist across HMR
   const value = useMemo(
@@ -40,8 +41,10 @@ export function DevScreenProvider({ children }: { children: ReactNode }) {
         writeStored(s)
         setForcedRaw(s)
       },
+      homeRequests,
+      goHome: () => setHomeRequests((n) => n + 1),
     }),
-    [forced],
+    [forced, homeRequests],
   )
 
   if (!DEV_SCREENS_ENABLED) return <>{children}</>
@@ -96,7 +99,7 @@ const SCREENS: ScreenDef[] = [
 ]
 
 export function DevOverlay() {
-  const { forced, setForced } = useDevScreen()
+  const { forced, setForced, goHome } = useDevScreen()
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
@@ -166,6 +169,19 @@ export function DevOverlay() {
             <span className={styles.rowMark}>{forced === null ? '->' : ''}</span>
             <span className={styles.rowLabel}>Reset (live state)</span>
             <span className={styles.rowHint}>Stop overriding</span>
+          </button>
+
+          <button
+            type="button"
+            className={styles.row}
+            onClick={() => {
+              goHome?.()
+              setOpen(false)
+            }}
+          >
+            <span className={styles.rowMark} />
+            <span className={styles.rowLabel}>Home</span>
+            <span className={styles.rowHint}>Pop the page stack to home</span>
           </button>
 
           <div className={styles.divider} aria-hidden />
