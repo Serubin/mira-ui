@@ -1,0 +1,40 @@
+.nowPlaying {
+  display: flex;
+  align-items: center;
+  padding: 0 $s-3 $s-3;
+  @include flex-gap-x($s-3);
+}
+
+.nowText {
+  flex: 1 1 auto;
+  min-width: 0;
+  @include column;
+}
+
+.overline {
+  color: $text-tertiary;
+  @include type(overline);
+}
+
+// room for the 2px focus ring, which the scroller would otherwise clip
+$ring-room: 4px;
+
+.upNext {
+  height: 100%;
+  @include column;
+}
+
+.label {
+  flex: 0 0 auto;
+  height: auto;
+  padding: 0 ($s-3 + $ring-room) $s-1;
+}
+
+.listFrame {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.list {
+  padding: $ring-room;
+}
