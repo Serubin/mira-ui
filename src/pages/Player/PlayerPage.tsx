@@ -208,6 +208,10 @@ export function PlayerPage({
             overlays.close('menu')
             overlays.open('deviceMenu')
           }}
+          onOpenBluetooth={() => {
+            overlays.close('menu')
+            overlays.open('btMenu')
+          }}
           onOpenSettings={() => {
             overlays.close('menu')
             overlays.open('settings')

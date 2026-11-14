@@ -1,4 +1,5 @@
 import { memo, useState } from 'react'
+import { useKnownDevices } from '@/hooks/useKnownDevices'
 import { Layer } from '@/input/router'
 import { useKnobNav } from '@/input/useKnobNav'
 import { accentVar, useTheme } from '@/theme/theme'
@@ -20,11 +21,13 @@ interface Props {
   currentDevice?: string
   onOpenDevices: () => void
 
+  onOpenBluetooth: () => void
+
   onOpenSettings: () => void
 }
 
-type Item = 'lyrics' | 'karaoke' | 'mic' | 'devices' | 'settings'
-const ITEMS: readonly Item[] = ['lyrics', 'karaoke', 'mic', 'devices', 'settings']
+type Item = 'lyrics' | 'karaoke' | 'mic' | 'devices' | 'bluetooth' | 'settings'
+const ITEMS: readonly Item[] = ['lyrics', 'karaoke', 'mic', 'devices', 'bluetooth', 'settings']
 
 function MenuImpl({
   open,
@@ -37,14 +40,19 @@ function MenuImpl({
   onToggleVoiceMic,
   currentDevice,
   onOpenDevices,
+  onOpenBluetooth,
   onOpenSettings,
 }: Props) {
   const theme = useTheme()
+  const { devices: phones } = useKnownDevices(open)
+  // the phone sharing its internet is the one in use, as the Bluetooth menu has it
+  const phone = phones?.find((d) => d.network) ?? phones?.find((d) => d.connected)
   const actions: Record<Item, () => void> = {
     lyrics: onToggleLyrics,
     karaoke: onToggleKaraoke,
     mic: onToggleVoiceMic,
     devices: onOpenDevices,
+    bluetooth: onOpenBluetooth,
     settings: onOpenSettings,
   }
   const nav = useKnobNav({
@@ -78,7 +86,7 @@ function MenuImpl({
           {...nav.itemProps('mic')}
         />
       </MenuGrid>
-      <MenuGrid columns={2}>
+      <MenuGrid columns={3}>
         <MenuLink
           icon="speakerBox"
           label="Devices"
@@ -86,9 +94,15 @@ function MenuImpl({
           {...nav.itemProps('devices')}
         />
         <MenuLink
+          icon="bluetooth"
+          label="Bluetooth"
+          detail={phone ? phone.name : 'Pair a phone'}
+          {...nav.itemProps('bluetooth')}
+        />
+        <MenuLink
           icon="gear"
           label="Settings"
-          detail="Brightness, pairing & more"
+          detail="Display & more"
           {...nav.itemProps('settings')}
         />
       </MenuGrid>
