@@ -79,9 +79,11 @@ export function OverlayHost({
         placement="modal"
         onClose={() => overlays.close('deviceMenu')}
       />
-      {overlays.isOpen('btMenu') ? (
-        <BluetoothMenu online={online} onClose={() => overlays.close('btMenu')} />
-      ) : null}
+      <BluetoothMenu
+        open={overlays.isOpen('btMenu')}
+        online={online}
+        onClose={() => overlays.close('btMenu')}
+      />
       <DebugScreen
         open={overlays.isOpen('debug')}
         onClose={() => overlays.close('debug')}
