@@ -7,6 +7,7 @@ import { useOverlayState } from '@/overlays/overlayContext'
 import { Artwork } from '@/ui/Artwork'
 import { Card, Carousel } from '@/ui/Carousel'
 import { Page, PageHeader } from '@/ui/Page'
+import { HomeClock } from './HomeClock'
 import { homeCardKey, homeCards, type HomeCard, type HomeCardKey } from './homeCards'
 import styles from './HomePage.module.scss'
 
@@ -23,6 +24,8 @@ export interface HomePageProps {
   btDeviceName: string | null
   /** resumes playback on the last device */
   onResume: () => void
+  /** minutes from UTC for the header clock, or null for the browser's own zone */
+  utcOffsetMin: number | null
 }
 
 function subtitleFor({ nowPlaying, connected, deviceName }: HomePageProps): string {
@@ -33,7 +36,7 @@ function subtitleFor({ nowPlaying, connected, deviceName }: HomePageProps): stri
 
 /** The root of the page stack: a carousel into everything else, under the player while it plays. */
 export function HomePage(props: HomePageProps) {
-  const { nowPlaying, deviceName, deviceCount, btDeviceName, onResume } = props
+  const { nowPlaying, deviceName, deviceCount, btDeviceName, onResume, utcOffsetMin } = props
   const nav = useNavigation()
   const overlays = useOverlayState()
 
@@ -100,7 +103,11 @@ export function HomePage(props: HomePageProps) {
       className={styles.home}
       header={
         <div className={styles.header}>
-          <PageHeader title={BRAND_NAME} subtitle={subtitleFor(props)} />
+          <PageHeader
+            title={BRAND_NAME}
+            subtitle={subtitleFor(props)}
+            trailing={<HomeClock utcOffsetMin={utcOffsetMin} />}
+          />
         </div>
       }
     >

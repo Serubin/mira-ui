@@ -1,12 +1,19 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { hw, withRouter } from '@/__tests__/hardware'
 import { NavigationContext, type Navigation } from '@/app/navigation'
 import type { Overlays } from '@/hooks/useOverlays'
+import { useKnobNav } from '@/input/useKnobNav'
 import { OverlayContext } from '@/overlays/overlayContext'
 import { HomePage, type HomePageProps } from '../HomePage'
 import { homeCards, type HomeCardsInput } from '../homeCards'
+
+// counts the page's own renders, which the header clock must not cause
+vi.mock('@/input/useKnobNav', async (importOriginal) => {
+  const mod = await importOriginal<{ useKnobNav: typeof useKnobNav }>()
+  return { ...mod, useKnobNav: vi.fn(mod.useKnobNav) }
+})
 
 const track = { title: 'Song', artist: 'Artist', art: '', djFallback: false }
 
@@ -30,6 +37,7 @@ function setup(over: Partial<HomePageProps> = {}, { busy = false } = {}) {
       deviceCount={0}
       btDeviceName={null}
       onResume={onResume}
+      utcOffsetMin={null}
       {...over}
     />,
     { wrapper },
@@ -121,5 +129,26 @@ describe('HomePage', () => {
     const { onResume } = setup({}, { busy: true })
     hw.press()
     expect(onResume).not.toHaveBeenCalled()
+  })
+})
+
+describe('HomePage clock', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('shows the time in the header, turning over on the minute without re-rendering the page', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 10, 14, 21, 4, 30))
+    setup()
+    const clock = screen.getByTestId('home-clock')
+    expect(clock).toHaveTextContent('9:04PM')
+    const renders = vi.mocked(useKnobNav).mock.calls.length
+
+    act(() => vi.advanceTimersByTime(29_000))
+    expect(clock).toHaveTextContent('9:04PM')
+    act(() => vi.advanceTimersByTime(1_000))
+    expect(clock).toHaveTextContent('9:05PM')
+    expect(vi.mocked(useKnobNav).mock.calls.length).toBe(renders)
   })
 })

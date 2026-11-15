@@ -709,6 +709,7 @@ function AppContent() {
               deviceCount={connectDevices.length}
               btDeviceName={btConnectedDevice?.name ?? null}
               onResume={resumeLast}
+              utcOffsetMin={utcOffsetMin}
             />
           )
         case 'player':
