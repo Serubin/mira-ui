@@ -26,7 +26,7 @@ const translate = (x: number) => `translate3d(${-x}px, 0, 0)`
 /**
  * A horizontal row driven by `useKnobNav`. The focused item widens by class, then the track
  * moves by transform to the item's measured offset, clamped at both ends. A one-finger drag
- * moves the track with the finger and focuses the item it is let go nearest.
+ * moves the track with the finger and focuses the item it is let go nearest, as does a mouse drag.
  */
 export function Carousel<T, K extends string>({
   items,
@@ -91,6 +91,8 @@ export function Carousel<T, K extends string>({
     let rests: number[] = []
     let max = 0
     let suppressClickUntil = 0
+    // the mouse pointer being dragged; touches never set it, so none is handled twice
+    let mouseId: number | null = null
 
     const springBack = () => {
       tr.style.transition = ''
@@ -99,6 +101,7 @@ export function Carousel<T, K extends string>({
     const cancel = () => {
       if (drag?.mode === 'x') springBack()
       drag = null
+      mouseId = null
     }
     const lockHorizontal = () => {
       const items = Array.from(tr.children) as HTMLElement[]
@@ -114,36 +117,70 @@ export function Carousel<T, K extends string>({
       tr.style.transition = 'none'
     }
 
-    const onStart = (e: TouchEvent) => {
-      const live = liveTouches(listOf(e.touches), listOf(e.changedTouches))
-      if (live.length !== 1) return cancel()
-      // a new touch is a gesture of its own; only a drag's own closing click is swallowed
+    const begin = (x: number, y: number) => {
+      // a new press is a gesture of its own; only a drag's own closing click is swallowed
       suppressClickUntil = 0
-      drag = { x: live[0].clientX, y: live[0].clientY, dx: 0, mode: 'undecided' }
+      drag = { x, y, dx: 0, mode: 'undecided' }
     }
-    const onMove = (e: TouchEvent) => {
-      const live = liveTouches(listOf(e.touches), listOf(e.changedTouches))
-      if (!drag) return
-      if (live.length !== 1) return cancel()
-      const dx = live[0].clientX - drag.x
+    /** Moves the track with the drag; true once the drag is the carousel's. */
+    const moveTo = (x: number, y: number): boolean => {
+      if (!drag) return false
+      const dx = x - drag.x
       if (drag.mode === 'undecided') {
-        drag.mode = decideAxis(dx, live[0].clientY - drag.y) ?? 'undecided'
+        drag.mode = decideAxis(dx, y - drag.y) ?? 'undecided'
         if (drag.mode === 'x') lockHorizontal()
       }
-      if (drag.mode !== 'x') return
+      if (drag.mode !== 'x') return false
       drag.dx = dx
       tr.style.transform = translate(rubberBand(restOffset.current - dx, max))
+      return true
     }
-    const onEnd = (e: TouchEvent) => {
-      const live = liveTouches(listOf(e.touches), listOf(e.changedTouches))
-      if (!drag || live.length > 0) return
+    const finish = (cancelled: boolean) => {
       const ended = drag
       drag = null
-      if (ended.mode !== 'x') return
+      mouseId = null
+      if (ended?.mode !== 'x') return
       suppressClickUntil = Date.now() + CLICK_SUPPRESS_MS
-      if (e.type === 'touchcancel') springBack()
+      if (cancelled) springBack()
       else release(from, ended.dx, rests)
     }
+
+    const onTouchStart = (e: TouchEvent) => {
+      const live = liveTouches(listOf(e.touches), listOf(e.changedTouches))
+      if (mouseId !== null) return
+      if (live.length !== 1) return cancel()
+      begin(live[0].clientX, live[0].clientY)
+    }
+    const onTouchMove = (e: TouchEvent) => {
+      const live = liveTouches(listOf(e.touches), listOf(e.changedTouches))
+      if (!drag || mouseId !== null) return
+      if (live.length !== 1) return cancel()
+      moveTo(live[0].clientX, live[0].clientY)
+    }
+    const onTouchEnd = (e: TouchEvent) => {
+      const live = liveTouches(listOf(e.touches), listOf(e.changedTouches))
+      if (!drag || mouseId !== null || live.length > 0) return
+      finish(e.type === 'touchcancel')
+    }
+
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.pointerType !== 'mouse' || e.button !== 0 || drag) return
+      mouseId = e.pointerId
+      begin(e.clientX, e.clientY)
+    }
+    const onPointerMove = (e: PointerEvent) => {
+      if (e.pointerId !== mouseId) return
+      // the button came up outside the browser, where no pointerup reaches us
+      if ((e.buttons & 1) === 0) return finish(true)
+      const wasX = drag?.mode === 'x'
+      // captured only once it is a drag, so a plain click still lands on the card under it
+      if (moveTo(e.clientX, e.clientY) && !wasX) vp.setPointerCapture(e.pointerId)
+    }
+    // on the window, so a press that wanders off the carousel before it is a drag still ends
+    const onPointerUp = (e: PointerEvent) => {
+      if (e.pointerId === mouseId) finish(e.type === 'pointercancel')
+    }
+
     const onClickCapture = (e: MouseEvent) => {
       if (Date.now() >= suppressClickUntil) return
       e.stopPropagation()
@@ -151,16 +188,24 @@ export function Carousel<T, K extends string>({
       suppressClickUntil = 0
     }
 
-    vp.addEventListener('touchstart', onStart, { passive: true })
-    vp.addEventListener('touchmove', onMove, { passive: true })
-    vp.addEventListener('touchend', onEnd, { passive: true })
-    vp.addEventListener('touchcancel', onEnd, { passive: true })
+    vp.addEventListener('touchstart', onTouchStart, { passive: true })
+    vp.addEventListener('touchmove', onTouchMove, { passive: true })
+    vp.addEventListener('touchend', onTouchEnd, { passive: true })
+    vp.addEventListener('touchcancel', onTouchEnd, { passive: true })
+    vp.addEventListener('pointerdown', onPointerDown)
+    vp.addEventListener('pointermove', onPointerMove)
+    window.addEventListener('pointerup', onPointerUp)
+    window.addEventListener('pointercancel', onPointerUp)
     vp.addEventListener('click', onClickCapture, { capture: true })
     return () => {
-      vp.removeEventListener('touchstart', onStart)
-      vp.removeEventListener('touchmove', onMove)
-      vp.removeEventListener('touchend', onEnd)
-      vp.removeEventListener('touchcancel', onEnd)
+      vp.removeEventListener('touchstart', onTouchStart)
+      vp.removeEventListener('touchmove', onTouchMove)
+      vp.removeEventListener('touchend', onTouchEnd)
+      vp.removeEventListener('touchcancel', onTouchEnd)
+      vp.removeEventListener('pointerdown', onPointerDown)
+      vp.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', onPointerUp)
+      window.removeEventListener('pointercancel', onPointerUp)
       vp.removeEventListener('click', onClickCapture, { capture: true })
     }
   }, [leadPx])

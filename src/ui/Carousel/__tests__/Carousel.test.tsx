@@ -282,5 +282,100 @@ describe('Carousel', () => {
       drag(300, 360)
       expect(options()[3]).toHaveClass('focused')
     })
+
+    it('leaves touch pointers to the touch path, so a touch is handled once', () => {
+      render(<Harness />, { wrapper: withRouter })
+
+      fireEvent.pointerDown(viewport(), { pointerId: 1, pointerType: 'touch', button: 0 })
+      drag(500, 250)
+      fireEvent.pointerUp(viewport(), { pointerId: 1, pointerType: 'touch', button: 0 })
+      expect(options()[1]).toHaveClass('focused')
+    })
+  })
+
+  describe('mouse drag', () => {
+    const viewport = () => track().parentElement!
+    const mouse = { pointerId: 7, pointerType: 'mouse', button: 0 }
+    let capture: ReturnType<typeof vi.fn>
+    beforeEach(() => {
+      capture = vi.fn()
+      Object.defineProperty(HTMLElement.prototype, 'setPointerCapture', {
+        value: capture,
+        configurable: true,
+      })
+    })
+    afterEach(() => {
+      delete (HTMLElement.prototype as Partial<HTMLElement>).setPointerCapture
+    })
+
+    function mouseDrag(fromX: number, toX: number, { end = true, target = viewport() } = {}) {
+      fireEvent.pointerDown(target, { ...mouse, clientX: fromX, clientY: 100, buttons: 1 })
+      for (const x of [fromX + (toX - fromX) / 2, toX]) {
+        fireEvent.pointerMove(viewport(), { ...mouse, clientX: x, clientY: 100, buttons: 1 })
+      }
+      if (end) fireEvent.pointerUp(viewport(), { ...mouse, clientX: toX, clientY: 100 })
+    }
+
+    it('moves the track with the mouse and focuses the item it is let go nearest', () => {
+      render(<Harness />, { wrapper: withRouter })
+
+      mouseDrag(500, 400, { end: false })
+      expect(track().style.transform).toBe('translate3d(-100px, 0, 0)')
+      expect(capture).toHaveBeenCalledWith(7)
+
+      fireEvent.pointerMove(viewport(), { ...mouse, clientX: 250, clientY: 100, buttons: 1 })
+      fireEvent.pointerUp(viewport(), { ...mouse, clientX: 250, clientY: 100 })
+      expect(options()[1]).toHaveClass('focused')
+      expect(track().style.transform).toBe('translate3d(-212px, 0, 0)')
+    })
+
+    it('does not select the card a drag ends on', () => {
+      const onSelect = vi.fn()
+      render(<Harness onSelect={onSelect} />, { wrapper: withRouter })
+
+      mouseDrag(500, 250)
+      fireEvent.click(options()[1])
+      expect(onSelect).not.toHaveBeenCalled()
+    })
+
+    it('still clicks through a drag too short to decide, without capturing', () => {
+      const onSelect = vi.fn()
+      render(<Harness onSelect={onSelect} />, { wrapper: withRouter })
+
+      mouseDrag(500, 497, { target: options()[2] })
+      fireEvent.click(options()[2])
+      expect(capture).not.toHaveBeenCalled()
+      expect(onSelect).toHaveBeenCalledWith('c')
+    })
+
+    it('springs back when the button comes up out of sight', () => {
+      render(<Harness />, { wrapper: withRouter })
+
+      mouseDrag(500, 250, { end: false })
+      fireEvent.pointerMove(viewport(), { ...mouse, clientX: 100, clientY: 100, buttons: 0 })
+      expect(options()[0]).toHaveClass('focused')
+      expect(track().style.transform).toBe('translate3d(0px, 0, 0)')
+    })
+
+    it('ends a press let go off the carousel before it became a drag', () => {
+      render(<Harness />, { wrapper: withRouter })
+
+      fireEvent.pointerDown(viewport(), { ...mouse, clientX: 500, clientY: 200, buttons: 1 })
+      fireEvent.pointerMove(viewport(), { ...mouse, clientX: 500, clientY: 20, buttons: 1 })
+      fireEvent.pointerUp(document.body, { ...mouse, clientX: 500, clientY: 0 })
+
+      mouseDrag(500, 250)
+      expect(options()[1]).toHaveClass('focused')
+    })
+
+    it('ignores other buttons', () => {
+      render(<Harness />, { wrapper: withRouter })
+
+      fireEvent.pointerDown(viewport(), { ...mouse, button: 2, clientX: 500, clientY: 100 })
+      fireEvent.pointerMove(viewport(), { ...mouse, clientX: 250, clientY: 100, buttons: 2 })
+      fireEvent.pointerUp(viewport(), { ...mouse, button: 2, clientX: 250, clientY: 100 })
+      expect(options()[0]).toHaveClass('focused')
+      expect(track().style.transform).toBe('translate3d(0px, 0, 0)')
+    })
   })
 })
