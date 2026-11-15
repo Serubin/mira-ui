@@ -30,6 +30,8 @@ $lyric-far: rgba(255, 255, 255, 0.15);
 $lyric-unsynced: rgba(255, 255, 255, 0.6);
 
 $accent: #1ed760;
+// for `rgb(var(--theme-accent, #{$accent-rgb}))` where no theme sets the accent
+$accent-rgb: 30, 215, 96;
 $accent-dim: rgba(30, 215, 96, 0.32);
 
 $c-danger: #e25b5b;

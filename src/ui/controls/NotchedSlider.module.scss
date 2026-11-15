@@ -81,7 +81,7 @@
   left: 0;
   height: 6px;
   border-radius: $r-pill;
-  background: $accent;
+  background: rgb(var(--theme-accent, #{$accent-rgb}));
   transition: width $dur-fast $ease-standard;
 }
 

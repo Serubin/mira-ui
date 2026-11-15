@@ -1,2 +1,3 @@
 export { Menu } from './Menu'
-export { MenuGrid, MenuLink, MenuSheet, MenuTile } from './MenuSheet'
+export { MenuControl, MenuGrid, MenuLink, MenuSheet, MenuTile } from './MenuSheet'
+export { useRowInView } from './useRowInView'

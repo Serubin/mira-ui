@@ -1,4 +1,13 @@
-import type { CSSProperties, ReactNode } from 'react'
+import {
+  useEffectEvent,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEventHandler,
+  type ReactNode,
+  type RefObject,
+} from 'react'
 import type { KnobItemProps } from '@/input/useKnobNav'
 import { Icon, type IconName } from '@/ui/icons'
 import styles from './MenuSheet.module.scss'
@@ -9,10 +18,45 @@ interface SheetProps {
   title: string
   edge?: 'top' | 'bottom'
   style?: CSSProperties
+  /** the scrolling body, for keeping a knob-focused row in view */
+  bodyRef?: RefObject<HTMLDivElement | null>
   children: ReactNode
 }
 
-export function MenuSheet({ open, onClose, title, edge = 'bottom', style, children }: SheetProps) {
+export function MenuSheet({
+  open,
+  onClose,
+  title,
+  edge = 'bottom',
+  style,
+  bodyRef,
+  children,
+}: SheetProps) {
+  const ownBody = useRef<HTMLDivElement | null>(null)
+  const scroller = bodyRef ?? ownBody
+  const [more, setMore] = useState({ above: false, below: false })
+  const checkMore = () => {
+    const el = scroller.current
+    if (!el) return
+    const above = el.scrollTop > 4
+    const below = el.scrollHeight - el.scrollTop - el.clientHeight > 4
+    setMore((m) => (m.above === above && m.below === below ? m : { above, below }))
+  }
+  const recheck = useEffectEvent(checkMore)
+  useLayoutEffect(() => {
+    const el = scroller.current
+    if (!open || !el) return
+    const id = requestAnimationFrame(() => recheck())
+    // content and the display size both change the overflow without a scroll
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => recheck())
+    ro?.observe(el)
+    if (el.firstElementChild) ro?.observe(el.firstElementChild)
+    return () => {
+      cancelAnimationFrame(id)
+      ro?.disconnect()
+    }
+  }, [open, scroller])
+
   return (
     <div
       className={`${styles.root} ${edge === 'top' ? styles.top : ''} ${open ? styles.open : ''}`}
@@ -28,7 +72,23 @@ export function MenuSheet({ open, onClose, title, edge = 'bottom', style, childr
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className={styles.title}>{title}</h2>
-        {children}
+        <div className={styles.bodyWrap}>
+          <div ref={scroller} className={styles.body} onScroll={checkMore}>
+            <div className={styles.content}>{children}</div>
+          </div>
+          <div
+            className={`${styles.more} ${styles.moreAbove} ${more.above ? styles.moreShown : ''}`}
+            aria-hidden
+          >
+            <Icon name="chevronRight" size={20} />
+          </div>
+          <div
+            className={`${styles.more} ${styles.moreBelow} ${more.below ? styles.moreShown : ''}`}
+            aria-hidden
+          >
+            <Icon name="chevronRight" size={20} />
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -82,13 +142,28 @@ interface LinkProps extends KnobItemProps {
   label: string
   detail?: string
   tone?: Tone
+  /** marks the current choice in the theme accent */
+  on?: boolean
+  /** off for a row that acts in place rather than opening another view */
+  chevron?: boolean
 }
 
-export function MenuLink({ icon, label, detail, tone, focused, disabled, onClick }: LinkProps) {
+export function MenuLink({
+  icon,
+  label,
+  detail,
+  tone,
+  on,
+  chevron = true,
+  focused,
+  disabled,
+  onClick,
+}: LinkProps) {
   return (
     <button
       type="button"
-      className={`${styles.link} ${tone ? styles[tone] : ''} ${focused ? styles.focused : ''}`}
+      aria-current={on || undefined}
+      className={`${styles.link} ${on ? styles.on : ''} ${tone ? styles[tone] : ''} ${focused ? styles.focused : ''}`}
       disabled={disabled}
       onClick={onClick}
     >
@@ -99,9 +174,32 @@ export function MenuLink({ icon, label, detail, tone, focused, disabled, onClick
         <span className={styles.linkLabel}>{label}</span>
         {detail ? <span className={styles.linkDetail}>{detail}</span> : null}
       </span>
-      <span className={styles.chevron}>
-        <Icon name="chevronRight" size={20} />
-      </span>
+      {chevron ? (
+        <span className={styles.chevron}>
+          <Icon name="chevronRight" size={20} />
+        </span>
+      ) : null}
     </button>
+  )
+}
+
+interface ControlProps {
+  focused: boolean
+  /** the knob is adjusting this row's control */
+  active?: boolean
+  onPointerDownCapture?: PointerEventHandler<HTMLDivElement>
+  children: ReactNode
+}
+
+/** A `menu-button` frame for a row that holds its own controls, such as a slider. */
+export function MenuControl({ focused, active, onPointerDownCapture, children }: ControlProps) {
+  return (
+    <div
+      className={`${styles.control} ${active ? styles.on : ''} ${focused ? styles.focused : ''}`}
+      aria-selected={focused}
+      onPointerDownCapture={onPointerDownCapture}
+    >
+      {children}
+    </div>
   )
 }

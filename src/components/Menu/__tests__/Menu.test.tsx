@@ -1,9 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen } from '@testing-library/react'
+import { http, HttpResponse } from 'msw'
 import { hw, REVERSAL_GAP_MS, withRouter } from '@/__tests__/hardware'
+import { server } from '@/__tests__/msw-server'
 import type { KnobStep } from '@/input/knob'
 import { Layer } from '@/input/router'
 import { useKnobScope } from '@/input/useKnobScope'
+
+vi.mock('@/api/eventBus', () => ({ subscribeEvents: () => () => {} }))
+
 import { Menu } from '../Menu'
 
 const baseProps = () => ({
@@ -16,6 +21,7 @@ const baseProps = () => ({
   voiceMic: true,
   onToggleVoiceMic: vi.fn(),
   onOpenDevices: vi.fn(),
+  onOpenBluetooth: vi.fn(),
   onOpenSettings: vi.fn(),
 })
 
@@ -60,6 +66,55 @@ describe('Menu', () => {
     expect(props.onOpenSettings).toHaveBeenCalledTimes(1)
   })
 
+  it('fires onOpenBluetooth when the Bluetooth row is clicked', () => {
+    const props = baseProps()
+    render(<Menu {...props} />)
+    fireEvent.click(screen.getByText('Bluetooth'))
+    expect(props.onOpenBluetooth).toHaveBeenCalledTimes(1)
+  })
+
+  it('names the phone sharing its internet on the Bluetooth row', async () => {
+    server.use(
+      http.get('*/bluetooth/known', () =>
+        HttpResponse.json([
+          {
+            address: 'AA',
+            name: 'Desktop PC',
+            starred: false,
+            last_connected: '',
+            connected: true,
+            network: false,
+          },
+          {
+            address: 'BB',
+            name: 'Samsung',
+            starred: true,
+            last_connected: '',
+            connected: true,
+            network: true,
+          },
+        ]),
+      ),
+    )
+    render(<Menu {...baseProps()} />)
+    expect(await screen.findByText('Samsung')).toBeInTheDocument()
+    expect(screen.queryByText('Pair a phone')).toBeNull()
+  })
+
+  it('offers pairing when no phone is connected', async () => {
+    render(<Menu {...baseProps()} />)
+    expect(await screen.findByText('Pair a phone')).toBeInTheDocument()
+  })
+
+  it('lays the links out in knob order', () => {
+    render(<Menu {...baseProps()} />)
+    const links = screen.getAllByRole('button')
+    expect(links).toHaveLength(3)
+    expect(links[0]).toHaveTextContent(/^Devices/)
+    expect(links[1]).toHaveTextContent(/^Bluetooth/)
+    expect(links[2]).toHaveTextContent(/^Settings/)
+  })
+
   describe('with the knob', () => {
     beforeEach(() => vi.useFakeTimers())
     afterEach(() => vi.useRealTimers())
@@ -100,9 +155,21 @@ describe('Menu', () => {
       expect(volume).not.toHaveBeenCalled()
     })
 
+    it('reaches bluetooth between devices and settings', () => {
+      const { props } = setup()
+      turn(4, 1)
+      expect(focused()).toMatch(/^Bluetooth/)
+      hw.press()
+      expect(props.onOpenBluetooth).toHaveBeenCalledTimes(1)
+      turn(1, 1)
+      expect(focused()).toMatch(/^Settings/)
+      hw.press()
+      expect(props.onOpenSettings).toHaveBeenCalledTimes(1)
+    })
+
     it('starts at the top again on every open', () => {
       const { setOpen } = setup()
-      turn(4, 1)
+      turn(5, 1)
       expect(focused()).toMatch(/^Settings/)
       setOpen(false)
       setOpen(true)
