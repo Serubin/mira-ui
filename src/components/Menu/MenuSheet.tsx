@@ -142,13 +142,28 @@ interface LinkProps extends KnobItemProps {
   label: string
   detail?: string
   tone?: Tone
+  /** marks the current choice in the theme accent */
+  on?: boolean
+  /** off for a row that acts in place rather than opening another view */
+  chevron?: boolean
 }
 
-export function MenuLink({ icon, label, detail, tone, focused, disabled, onClick }: LinkProps) {
+export function MenuLink({
+  icon,
+  label,
+  detail,
+  tone,
+  on,
+  chevron = true,
+  focused,
+  disabled,
+  onClick,
+}: LinkProps) {
   return (
     <button
       type="button"
-      className={`${styles.link} ${tone ? styles[tone] : ''} ${focused ? styles.focused : ''}`}
+      aria-current={on || undefined}
+      className={`${styles.link} ${on ? styles.on : ''} ${tone ? styles[tone] : ''} ${focused ? styles.focused : ''}`}
       disabled={disabled}
       onClick={onClick}
     >
@@ -159,9 +174,11 @@ export function MenuLink({ icon, label, detail, tone, focused, disabled, onClick
         <span className={styles.linkLabel}>{label}</span>
         {detail ? <span className={styles.linkDetail}>{detail}</span> : null}
       </span>
-      <span className={styles.chevron}>
-        <Icon name="chevronRight" size={20} />
-      </span>
+      {chevron ? (
+        <span className={styles.chevron}>
+          <Icon name="chevronRight" size={20} />
+        </span>
+      ) : null}
     </button>
   )
 }

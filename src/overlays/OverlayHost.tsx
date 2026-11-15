@@ -72,14 +72,13 @@ export function OverlayHost({
           overlays.open('btMenu')
         }}
       />
-      {overlays.isOpen('deviceMenu') ? (
-        <DevicePicker
-          devices={connectDevices}
-          onSelect={onPickDevice}
-          placement="modal"
-          onClose={() => overlays.close('deviceMenu')}
-        />
-      ) : null}
+      <DevicePicker
+        open={overlays.isOpen('deviceMenu')}
+        devices={connectDevices}
+        onSelect={onPickDevice}
+        placement="modal"
+        onClose={() => overlays.close('deviceMenu')}
+      />
       {overlays.isOpen('btMenu') ? (
         <BluetoothMenu online={online} onClose={() => overlays.close('btMenu')} />
       ) : null}

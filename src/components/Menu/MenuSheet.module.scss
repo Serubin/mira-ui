@@ -193,7 +193,9 @@ $ring-room: 4px;
   border-color: rgba(var(--theme-accent, #{$accent-fallback}), 0.38);
 
   .tileIcon,
-  .tileValue {
+  .tileValue,
+  .linkIcon,
+  .linkDetail {
     color: rgb(var(--theme-accent, #{$accent-fallback}));
   }
 }
@@ -224,6 +226,7 @@ $ring-room: 4px;
 .linkLabel {
   font-size: 20px;
   font-weight: $fw-semibold;
+  @include truncate;
 }
 
 .linkDetail {

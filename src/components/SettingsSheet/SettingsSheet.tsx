@@ -1,5 +1,5 @@
-import { memo, useLayoutEffect, useRef, useState } from 'react'
-import { MenuControl, MenuLink, MenuSheet } from '@/components/Menu'
+import { memo, useState } from 'react'
+import { MenuControl, MenuLink, MenuSheet, useRowInView } from '@/components/Menu'
 import { Layer } from '@/input/router'
 import { useBackCapture } from '@/input/useBackCapture'
 import { useKnobNav } from '@/input/useKnobNav'
@@ -19,7 +19,6 @@ import {
 import { accentVar, useTheme } from '@/theme/theme'
 import { NotchedSlider, SettingRow } from '@/ui/controls'
 import { Icon } from '@/ui/icons'
-import { ensureVisible } from '@/ui/List/listMath'
 
 interface Props {
   open: boolean
@@ -145,22 +144,9 @@ function SettingsSheetImpl({ open, onClose, phoneVolume = false, onOpenBluetooth
   // the slider would otherwise keep turning after it went disabled under the knob
   if (adjusting !== null && disabled(adjusting)) setAdjusting(null)
 
-  const body = useRef<HTMLDivElement>(null)
   // the auto switch sits in the brightness row
   const focusRow = nav.focusKey === 'autoBrightness' ? 'brightness' : nav.focusKey
-  useLayoutEffect(() => {
-    const el = body.current
-    const target = focusRow && el?.querySelector<HTMLElement>(`[data-row="${focusRow}"]`)
-    if (!open || !el || !target) return
-    // offsets and scrollTop share the unzoomed layout px of #root's zoom
-    el.scrollTop = ensureVisible(
-      el.scrollTop,
-      el.clientHeight,
-      target.offsetTop,
-      target.offsetHeight,
-      16,
-    )
-  }, [open, focusRow, uiScalePct])
+  const body = useRowInView(focusRow, open, uiScalePct)
 
   // a touch moves focus there and abandons any knob adjustment elsewhere. committing a
   // previewed size now would rescale the panel under the finger
